@@ -78,3 +78,16 @@ python reconcile.py sample_data_error/bank.csv sample_data_error/books.csv    # 
 python tools/make_sample_data.py                                              # regenerar datos
 python app.py                                                                 # web: http://127.0.0.1:5001
 ```
+
+## Preparado para GitHub (sin push)
+`.gitignore` revisado: deja fuera venv/, cachés, output/, *.xlsx, tmp/, uploads/,
+.env, archivos del sistema y de editores, y registros.
+
+Cuando el repositorio exista en GitHub ("repo listo"), estos son los comandos exactos:
+```bash
+cd ~/cuadrador
+git remote add origin git@github.com:d2fzrsthmj-source/cuadrador.git
+git push -u origin main
+```
+Antes del push, decidir si el nombre completo del autor de los commits debe verse
+(ver "Decisiones tomadas por mi cuenta").

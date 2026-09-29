@@ -13,3 +13,21 @@ output/
 # Carpetas de archivos subidos (nunca se guardan)
 uploads/
 tmp/
+
+# Variables de entorno y claves (por si algún día se usan)
+.env
+.env.*
+
+# Archivos del sistema y de editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Registros
+*.log
+
+# Archivos Zone.Identifier que Windows crea al copiar a WSL
+*:Zone.Identifier
