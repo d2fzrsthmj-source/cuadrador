@@ -9,6 +9,8 @@ __pycache__/
 # Archivos de salida (Excel generados, reportes)
 output/
 *.xlsx
+# ...salvo los datos de ejemplo en Excel (inventados)
+!sample_data/*.xlsx
 
 # Carpetas de archivos subidos (nunca se guardan)
 uploads/

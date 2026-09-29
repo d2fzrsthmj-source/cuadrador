@@ -211,7 +211,7 @@ def test_sample_data_is_reproducible(tmp_path, monkeypatch):
         for path in saved.rglob("*"):
             if path.is_file():
                 copy = tmp_path / folder / path.relative_to(saved)
-                assert copy.read_text() == path.read_text(), path
+                assert copy.read_bytes() == path.read_bytes(), path
 
 
 def test_transposed_digits():

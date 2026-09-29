@@ -19,12 +19,12 @@
 
 <div class="layout">
   <form class="card" action="{{ url_for('reconcile_upload') }}" method="post" enctype="multipart/form-data">
-    <label for="bank">1. Bank statement (.csv)</label>
-    <input id="bank" name="bank" type="file" accept=".csv" required>
+    <label for="bank">1. Bank statement (.csv or .xlsx)</label>
+    <input id="bank" name="bank" type="file" accept=".csv,.xlsx" required>
     <p class="hint">Date, description and amount (or separate debit and credit columns).</p>
 
-    <label for="books">2. Books: account register (.csv)</label>
-    <input id="books" name="books" type="file" accept=".csv" required>
+    <label for="books">2. Books: account register (.csv or .xlsx)</label>
+    <input id="books" name="books" type="file" accept=".csv,.xlsx" required>
     <p class="hint">Date, name, number and amount. Positive = money in, negative = money out. An invoice list also works.</p>
 
     <div class="balances">
@@ -40,7 +40,7 @@
     <p class="hint">Both balances are needed to calculate the difference.</p>
 
     <p style="margin-top: 20px;"><button type="submit">Reconcile</button></p>
-    <p class="hint">Only .csv files, up to 5 MB in total.</p>
+    <p class="hint">CSV or Excel (.xlsx) files, up to 5 MB in total. Excel files are read from the first sheet.</p>
   </form>
 
   <aside class="card demo">

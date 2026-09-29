@@ -9,6 +9,7 @@ Crea dos juegos de datos:
     bank.csv               movimientos del banco (una columna de monto)
     bank_debit_credit.csv  los mismos movimientos, con columnas Debit y Credit
     books.csv              el registro de la cuenta en los libros (estilo QuickBooks)
+    bank.xlsx, books.xlsx  los mismos datos en Excel (fechas y montos como celdas de Excel)
     balances.json          saldo final del banco y de los libros
     expected.csv           la "hoja de respuestas": qué debe pasar con cada caso difícil
     formats/format_*.csv   el mismo estado de cuenta en 3 formatos distintos (ver mappings/),
@@ -23,11 +24,16 @@ Usa una semilla fija, así que siempre genera exactamente los mismos archivos.
 
 import copy
 import csv
+import io
 import json
 import random
-from datetime import date, timedelta
+import re
+import zipfile
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+
+from openpyxl import Workbook
 
 SEED = 20260801
 ROOT = Path(__file__).resolve().parent.parent
@@ -385,6 +391,45 @@ def write_books(folder, books):
                              quickbooks_amount(entry["amount"])])
 
 
+# Fecha fija para los archivos de Excel: así el .xlsx sale idéntico cada vez
+FIXED_TIMESTAMP = datetime(2026, 9, 1)
+
+
+def save_xlsx_reproducible(workbook, path):
+    """Guarda un .xlsx siempre igual, byte por byte.
+
+    Un .xlsx es un zip; openpyxl anota dentro la hora actual (en las propiedades y en
+    cada archivo del zip). Fijamos esas fechas para que git no vea cambios al regenerar.
+    """
+    workbook.properties.created = FIXED_TIMESTAMP
+    workbook.properties.modified = FIXED_TIMESTAMP
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    with zipfile.ZipFile(buffer) as original, zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as copy_zip:
+        for item in original.infolist():
+            data = original.read(item.filename)
+            if item.filename == "docProps/core.xml":
+                # openpyxl pone la hora actual en "modified" al guardar: la reemplazamos
+                stamp = FIXED_TIMESTAMP.strftime("%Y-%m-%dT%H:%M:%SZ").encode()
+                data = re.sub(rb"(<dcterms:modified[^>]*>)[^<]*", rb"\g<1>" + stamp, data)
+            fixed = zipfile.ZipInfo(item.filename, date_time=FIXED_TIMESTAMP.timetuple()[:6])
+            fixed.compress_type = zipfile.ZIP_DEFLATED
+            copy_zip.writestr(fixed, data)
+
+
+def write_excel(folder, name, header, rows):
+    """Una hoja con encabezado y filas. Las fechas van como fechas de Excel y los montos como números."""
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = name
+    sheet.append(header)
+    for row in rows:
+        sheet.append(row)
+    for cell in sheet["A"][1:]:
+        cell.number_format = "mm/dd/yyyy"
+    save_xlsx_reproducible(workbook, folder / f"{name}.xlsx")
+
+
 def write_balances(folder, bank, books):
     """Saldo final = saldo inicial + todos los movimientos del mes."""
     bank_end = OPENING_BALANCE + sum(line["amount"] for line in bank)
@@ -419,6 +464,10 @@ def write_files(builder):
     write_bank(OUT_DIR, builder.bank)
     write_bank_debit_credit(OUT_DIR, builder.bank)
     write_books(OUT_DIR, builder.books)
+    write_excel(OUT_DIR, "bank", ["Date", "Description", "Amount"],
+                [[line["date"], line["description"], line["amount"]] for line in builder.bank])
+    write_excel(OUT_DIR, "books", ["Date", "Name", "Num", "Amount"],
+                [[e["date"], e["name"], e["num"], e["amount"]] for e in builder.books])
     write_balances(OUT_DIR, builder.bank, builder.books)
     write_expected(OUT_DIR, builder.cases)
     write_format_samples(OUT_DIR / "formats", builder.bank)

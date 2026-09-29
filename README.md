@@ -52,12 +52,12 @@ Green means the account reconciles. Red means it doesn't, and Cuadrador tells yo
 
 ![Upload screen](docs/upload.png)
 
-1. **Export the bank statement as a CSV file.** Most online banking sites can download account activity for a date range as CSV. You need a date, a description and an amount, or separate debit and credit columns.
-2. **Export the account register from your accounting software as a CSV file.** In QuickBooks and similar programs, this is the transaction list or register for the checking account you are reconciling, for the same period. A plain list of invoices and bills also works.
+1. **Export the bank statement as a CSV or Excel (.xlsx) file.** Most online banking sites can download account activity for a date range as CSV or Excel. You need a date, a description and an amount, or separate debit and credit columns.
+2. **Export the account register from your accounting software as a CSV or Excel (.xlsx) file.** In QuickBooks and similar programs, this is the transaction list or register for the checking account you are reconciling, for the same period. A plain list of invoices and bills also works.
 3. **Note both ending balances:** the one printed on the bank statement and the one in your books for the same date. They are optional, but without them Cuadrador can match the lines but cannot calculate the difference.
 4. Open Cuadrador, choose the two files, enter the balances and click **Reconcile**.
 
-Banks format their files differently. Cuadrador recognizes common column names and skips lines of text at the top of the file, such as the bank name or the account ending in 0000. If it doesn't recognize your columns, it asks you once which column is the date, the amount and so on, and can remember that layout for next time.
+Excel files are read from their first sheet. Banks format their files differently. Cuadrador recognizes common column names and skips lines of text at the top of the file, such as the bank name or the account ending in 0000. If it doesn't recognize your columns, it asks you once which column is the date, the amount and so on, and can remember that layout for next time.
 
 No files at hand? Click **Try with sample data** or **Try the example with an error**. Both use a made-up company, *Maple Street Contracting*.
 
@@ -76,7 +76,7 @@ No files at hand? Click **Try with sample data** or **Try the example with an er
 - Export everything to Excel.
 
 **It doesn't:**
-- **Read PDF statements.** It only reads CSV files.
+- **Read PDF statements.** It reads CSV and Excel (.xlsx) files. Old .xls files need to be saved as .xlsx or .csv first.
 - **Connect to your bank or to QuickBooks.** You export and upload the files yourself.
 - **Make the final call.** Cuadrador *suggests*; a person *decides*. Partial payments, duplicates and ambiguous matches stay open until you resolve them.
 - **Change your books.** It tells you what to record; you record it.
@@ -103,7 +103,8 @@ From the command line:
 ```bash
 python reconcile.py sample_data/bank.csv sample_data/books.csv
 python reconcile.py sample_data_error/bank.csv sample_data_error/books.csv
-python reconcile.py my_bank.csv my_books.csv --bank-balance 12,345.67 --book-balance 11,980.20
+python reconcile.py sample_data/bank.xlsx sample_data/books.xlsx     # Excel works too
+python reconcile.py my_bank.csv my_books.xlsx --bank-balance 12,345.67 --book-balance 11,980.20
 ```
 
 This prints the reconciliation and saves `output/reconciliation.xlsx`.

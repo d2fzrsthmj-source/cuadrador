@@ -1,6 +1,6 @@
-"""Lector de archivos CSV.
+"""Lector de archivos CSV y Excel (.xlsx).
 
-Lee el CSV del banco o el de facturas y convierte cada línea a una forma única
+Lee el archivo del banco o el de los libros y convierte cada línea a una forma única
 (`Transaction`): fecha, monto (Decimal, positivo = entra dinero, negativo = sale),
 descripción y referencia.
 
@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+
+from openpyxl import load_workbook
 
 # Nombres de columna que reconocemos para cada dato (en minúsculas).
 # Se usa el primero que aparezca en el archivo.
@@ -32,6 +34,11 @@ DEFAULT_COLUMNS = {
 DATE_FORMATS = ["%m/%d/%Y", "%Y-%m-%d", "%m/%d/%y", "%m-%d-%Y"]
 
 CENT = Decimal("0.01")
+
+# Cómo empiezan por dentro los archivos de Excel:
+# .xlsx es un zip ("PK..."); .xls (Excel viejo, antes de 2007) tiene otra firma
+XLSX_SIGNATURE = b"PK\x03\x04"
+OLD_EXCEL_SIGNATURE = b"\xd0\xcf\x11\xe0"
 
 # Cuántas filas del principio revisamos buscando el encabezado
 MAX_HEADER_SCAN = 30
@@ -165,12 +172,54 @@ def guess_header(rows):
 
 
 def read_rows(source_file):
-    """Todas las filas no vacías del CSV, cada una con su número de línea en el archivo."""
-    reader = csv.reader(io.StringIO(_open_text(source_file)))
-    rows = [(reader.line_num, row) for row in reader if any(cell.strip() for cell in row)]
+    """Todas las filas no vacías del archivo (CSV o Excel .xlsx), cada una con su número de línea.
+
+    Cada fila es una lista de textos, así que lo que venga después (buscar el
+    encabezado, leer fechas y montos) es igual para CSV y para Excel.
+    """
+    content = _read_content(source_file)
+    if isinstance(content, bytes) and content.startswith(OLD_EXCEL_SIGNATURE):
+        raise ValueError("This is an old Excel file (.xls). Save the file as .xlsx or .csv")
+    if isinstance(content, bytes) and content.startswith(XLSX_SIGNATURE):
+        rows = _xlsx_rows(content)
+    else:
+        if isinstance(content, bytes):
+            # utf-8-sig quita la marca invisible (BOM) que pone Excel al guardar CSV
+            content = content.decode("utf-8-sig", errors="replace")
+        reader = csv.reader(io.StringIO(content))
+        rows = [(reader.line_num, row) for row in reader]
+    rows = [(line, row) for line, row in rows if any(cell.strip() for cell in row)]
     if not rows:
         raise ValueError("The file is empty.")
     return rows
+
+
+def _xlsx_rows(content):
+    """Lee la primera hoja de un .xlsx y devuelve (número de fila, [textos de cada celda])."""
+    try:
+        # data_only=True: si una celda tiene una fórmula, nos da el resultado, no la fórmula
+        workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    except Exception:
+        raise ValueError("Can't open this Excel file. Save it again as .xlsx or .csv")
+    sheet = workbook.worksheets[0]
+    rows = [(number, [excel_cell_text(value) for value in values])
+            for number, values in enumerate(sheet.iter_rows(values_only=True), start=1)]
+    workbook.close()
+    return rows
+
+
+def excel_cell_text(value):
+    """Convierte lo que entrega Excel en el mismo texto que tendría un CSV.
+
+    - Fechas (datetime) -> '08/05/2026', que parse_date ya sabe leer.
+    - Números -> str(valor): 540.1 -> '540.1', y parse_amount lo vuelve Decimal('540.10')
+      sin pasar nunca por cuentas con float.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, (datetime, date)):
+        return value.strftime("%m/%d/%Y")
+    return str(value)
 
 
 def _cell(row, columns, field):
@@ -196,16 +245,11 @@ def _row_amount(row, columns):
     return abs(credit or Decimal("0.00")) - abs(debit or Decimal("0.00"))
 
 
-def _open_text(source_file):
-    """Acepta una ruta (str/Path) o un archivo ya abierto; devuelve texto."""
+def _read_content(source_file):
+    """Acepta una ruta (str/Path) o un archivo ya abierto; devuelve bytes (o texto si ya era texto)."""
     if isinstance(source_file, (str, Path)):
-        # utf-8-sig quita la marca invisible (BOM) que pone Excel al guardar CSV
-        with open(source_file, encoding="utf-8-sig", newline="") as f:
-            return f.read()
-    content = source_file.read()
-    if isinstance(content, bytes):
-        content = content.decode("utf-8-sig", errors="replace")
-    return content
+        return Path(source_file).read_bytes()
+    return source_file.read()
 
 
 def read_transactions(source_file, source, column_map=None, formats=None):

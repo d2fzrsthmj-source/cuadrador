@@ -100,10 +100,10 @@ def test_unknown_sample_is_404(client):
 
 def test_only_csv_files_are_accepted(client):
     response = client.post("/reconcile", content_type="multipart/form-data", data={
-        "bank": (io.BytesIO(b"PK..."), "statement.xlsx"),
+        "bank": (io.BytesIO(b"%PDF-1.7"), "statement.pdf"),
         "books": (io.BytesIO(b"Date,Name,Num,Amount\n"), "books.csv")})
     assert response.status_code == 400
-    assert "must be a .csv file" in response.get_data(as_text=True)
+    assert "must be a .csv or .xlsx file" in response.get_data(as_text=True)
 
 
 def test_bad_balance_is_explained(client):

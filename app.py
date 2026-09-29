@@ -26,6 +26,7 @@ from reconciliation import load_balances
 
 app = Flask(__name__)
 MAX_UPLOAD_MB = 5
+ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024   # tope por envío (los dos archivos juntos)
 app.jinja_env.filters["money"] = money
 
@@ -84,9 +85,12 @@ def read_upload(field, label):
     file = request.files.get(field)
     if not file or not file.filename:
         raise ValueError(f"Please choose the {label} file.")
-    if Path(file.filename).suffix.lower() != ".csv":
-        raise ValueError(f"The {label} file must be a .csv file (you chose '{file.filename}'). "
-                         f"Save or export it as CSV first.")
+    extension = Path(file.filename).suffix.lower()
+    if extension == ".xls":
+        raise ValueError(f"The {label} file is an old Excel file ('{file.filename}'). "
+                         f"Save the file as .xlsx or .csv")
+    if extension not in ALLOWED_EXTENSIONS:
+        raise ValueError(f"The {label} file must be a .csv or .xlsx file (you chose '{file.filename}').")
     content = file.read()
     if not content.strip():
         raise ValueError(f"The {label} file is empty.")
