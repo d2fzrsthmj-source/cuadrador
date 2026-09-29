@@ -10,7 +10,10 @@ de la más segura a la menos segura:
   Ronda 3: mismo monto + fecha cercana + nombre parecido          -> "Probable"
            (si el nombre no ayuda a decidir)                      -> "Review"
   Ronda 4: montos con dos dígitos invertidos (540 vs 450)         -> "Review"
-  Ronda 5: lo que sobra: ¿varios asientos juntos? ¿pago parcial?  -> "Review"
+  Ronda 5: lo que sobra:
+           suma exacta de 2 o 3 asientos (una sola combinación)   -> "Probable"
+           varias combinaciones posibles                          -> "Review"
+           pago parcial o pago de más del mismo cliente           -> "Review"
   El resto: "Bank only" (solo en el banco) y "Books only" (solo en los libros).
 
 Cada resultado guarda su MOTIVO en palabras simples (en inglés, porque es lo
@@ -24,12 +27,15 @@ eso decide qué entra en la conciliación estándar (ver reconciliation.py).
 import re
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
+from itertools import combinations
 
 # Reglas del juego (fáciles de cambiar aquí)
 DATE_WINDOW_DAYS = 5      # "fecha cercana" para rondas 2, 3 y 4
 LOOSE_WINDOW_DAYS = 10    # ventana más amplia para pagos parciales y múltiples
 MIN_NAME_SCORE = 0.6      # parecido mínimo de nombres (0 = nada, 1 = idéntico)
 NAME_MARGIN = 0.15        # cuánto debe ganarle el mejor nombre al segundo
+MAX_COMBINATION = 3       # un depósito puede juntar hasta 3 asientos
+MAX_OPTIONS = 5           # con más combinaciones posibles que esto, no se sugiere nada
 
 # Estados posibles
 MATCHED = "Matched"
@@ -137,6 +143,16 @@ def days_text(days):
 
 def refs_text(entries):
     return ", ".join(e.reference or e.description for e in entries)
+
+
+def combo_text(entries):
+    """'INV-5007 + INV-5008'."""
+    return " + ".join(entry_label(e) for e in entries)
+
+
+def combo_amounts(entries):
+    """'$1,500.00 + $1,275.50'."""
+    return " + ".join(money(e.amount) for e in entries)
 
 
 def entry_label(entry):
@@ -295,51 +311,67 @@ class Reconciler:
                          f"({entry_label(entry)}). Two digits look swapped "
                          f"when it was recorded", cleared=True, discrepancy=gap)
 
-    # --- ronda 5: varios asientos juntos y pagos parciales ---
+    # --- ronda 5: varios asientos juntos, pagos parciales y pagos de más ---
 
     def round_leftovers(self):
         for b in self.free_bank():
             if not self.find_multi_entry(b):
-                self.find_partial(b)
+                self.find_partial_or_overpayment(b)
 
     def find_multi_entry(self, bank):
-        """¿Esta línea del banco es la suma exacta de dos asientos?"""
+        """¿Esta línea del banco es la suma exacta de 2 o 3 asientos cercanos?"""
         nearby = [e for e in self.free_books()
                   if same_direction(bank, e) and days_apart(bank, e) <= LOOSE_WINDOW_DAYS]
-        pairs = []
-        for x in range(len(nearby)):
-            for y in range(x + 1, len(nearby)):
-                a, c = nearby[x], nearby[y]
-                if a.amount + c.amount == bank.amount:
-                    score = (name_similarity(bank.description, a.description)
-                             + name_similarity(bank.description, c.description))
-                    pairs.append((score, a, c))
-        if not pairs:
-            return False
-        _, a, c = max(pairs, key=lambda p: p[0])
-        self.add(REVIEW, [bank], [a, c],
-                 f"One payment for 2 entries? {a.reference} ({money(a.amount)}) + "
-                 f"{c.reference} ({money(c.amount)}) = {money(bank.amount)}")
+        options = []
+        for size in range(2, MAX_COMBINATION + 1):
+            for combo in combinations(nearby, size):
+                if sum(e.amount for e in combo) == bank.amount:
+                    options.append(list(combo))
+        if not options or len(options) > MAX_OPTIONS:
+            return False   # ninguna, o tantas que sería adivinar
+
+        if len(options) == 1:
+            [combo] = options
+            self.add(PROBABLE, [bank], combo,
+                     f"Pays {combo_text(combo)} ({combo_amounts(combo)} = {money(bank.amount)}); "
+                     f"the only combination of up to {MAX_COMBINATION} entries that adds up", cleared=True)
+            return True
+
+        # Varias combinaciones posibles: se muestran todas y decide una persona
+        entries = []
+        for combo in options:
+            entries += [e for e in combo if e not in entries]
+        listed = "; ".join(f"option {n}: {combo_text(combo)}" for n, combo in enumerate(options, start=1))
+        self.add(REVIEW, [bank], entries,
+                 f"{len(options)} combinations of entries add up to {money(bank.amount)} ({listed}). "
+                 f"Pick the right one")
         return True
 
-    def find_partial(self, bank):
-        """¿Esta línea del banco paga solo una parte de un asiento del mismo cliente?"""
+    def find_partial_or_overpayment(self, bank):
+        """¿Esta línea del banco es un pago de menos o de más de un asiento del mismo nombre?"""
         options = []
         for e in self.free_books():
-            if not same_direction(bank, e) or abs(bank.amount) >= abs(e.amount):
+            if not same_direction(bank, e) or abs(bank.amount) == abs(e.amount):
                 continue
             if days_apart(bank, e) > LOOSE_WINDOW_DAYS:
                 continue
             score = name_similarity(bank.description, e.description)
             if score >= MIN_NAME_SCORE or reference_found(bank, e) is not None:
-                options.append((score, e))
+                # Gana el nombre más parecido; si empatan, el monto más cercano
+                options.append((score, -abs(abs(e.amount) - abs(bank.amount)), e))
         if not options:
             return False
-        _, entry = max(options, key=lambda p: p[0])
-        short = abs(entry.amount) - abs(bank.amount)
-        self.add(REVIEW, [bank], [entry],
-                 f"Partial payment? Bank shows {money(bank.amount)} but {entry.reference} "
-                 f"is {money(entry.amount)} ({money(short)} short)")
+        _, _, entry = max(options, key=lambda p: (p[0], p[1]))
+        paid, expected = abs(bank.amount), abs(entry.amount)
+        verb = "Received" if bank.amount > 0 else "Paid"
+        if paid < expected:
+            self.add(REVIEW, [bank], [entry],
+                     f"Partial payment? {verb} {money(paid)} of {entry_label(entry)} "
+                     f"({money(expected)}); {money(expected - paid)} still open")
+        else:
+            self.add(REVIEW, [bank], [entry],
+                     f"Overpayment? {verb} {money(paid)} for {entry_label(entry)} "
+                     f"({money(expected)}); {money(paid - expected)} more than recorded")
         return True
 
     # --- todo junto ---

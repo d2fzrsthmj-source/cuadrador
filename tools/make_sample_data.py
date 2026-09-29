@@ -198,7 +198,7 @@ class SampleBuilder:
             line = self.add_bank(day, bank_text, amount)
             self.add_case(1, f"Recorded in the books: {book_name}", [line], [ref], "Matched")
 
-    # ---------- casos difíciles (3, 5, 6, 7, 8, 9, 10) ----------
+    # ---------- casos difíciles (3, 5, 6, 7, 8, 9, 10, 11) ----------
 
     def tricky(self):
         # Caso 3: nombre escrito distinto. Hay otro pago con el MISMO monto
@@ -261,7 +261,7 @@ class SampleBuilder:
         self.add_book(date(2026, 8, 7), "Birchwood HOA", ref_b, "1275.50")
         line = self.add_bank(date(2026, 8, 10), "ACH CREDIT BIRCHWOOD HOA", "2775.50")
         self.add_case(9, "One deposit covers two entries (1,500.00 + 1,275.50)",
-                      [line], [ref_a, ref_b], "Review")
+                      [line], [ref_a, ref_b], "Probable")
 
         # Caso 10: movimiento duplicado. El original cuadra; la copia va a revisión.
         ref = self.bill_ref()
@@ -279,6 +279,13 @@ class SampleBuilder:
         self.transposed = self.add_book(date(2026, 8, 12), "Red Barn Hardware", ref, "-540.00")
         line = self.add_bank(date(2026, 8, 17), f"CHECK {ref}", "-540.00")
         self.add_case(4, f"Check number {ref} in bank description", [line], [ref], "Matched")
+
+        # Caso 11: pago de más (el cliente pagó 1,000.00 por un cobro registrado de 900.00)
+        ref = self.invoice_ref()
+        self.reserve("900.00", "1000.00", "100.00")
+        self.add_book(date(2026, 8, 13), "Cedar Hill Kennels", ref, "900.00")
+        line = self.add_bank(date(2026, 8, 15), "ACH CREDIT CEDAR HILL KENNELS", "1000.00")
+        self.add_case(11, "Overpayment: 1,000.00 received for 900.00 recorded", [line], [ref], "Review")
 
 
 # ---------- escribir archivos ----------

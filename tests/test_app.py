@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from app import app
+from reconciliation import load_balances
 
 SAMPLES = Path(__file__).resolve().parent.parent / "sample_data"
 
@@ -31,8 +32,9 @@ def test_upload_page(client):
 
 
 def test_results_page_and_excel_download(client):
+    bank_balance, book_balance = load_balances(SAMPLES)
     response = upload(client, (SAMPLES / "bank.csv").read_bytes(), (SAMPLES / "books.csv").read_bytes(),
-                      bank_balance="93,505.90", book_balance="101,962.94")
+                      bank_balance=str(bank_balance), book_balance=str(book_balance))
     assert response.status_code == 200
     page = response.get_data(as_text=True)
     assert "Needs review" in page and "Not matched" in page

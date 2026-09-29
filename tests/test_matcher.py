@@ -114,12 +114,17 @@ def test_case_7_in_books_not_yet_in_bank(outcome):
 
 def test_case_8_partial_payment(outcome):
     [reason] = check_case(outcome, 8)
-    assert "Partial payment" in reason and "$1,200.00 short" in reason
+    assert "Partial payment" in reason and "$3,000.00 of INV-" in reason and "$1,200.00 still open" in reason
 
 
 def test_case_9_one_payment_for_two_entries(outcome):
     [reason] = check_case(outcome, 9)
-    assert "2 entries" in reason
+    assert reason.startswith("Pays INV-") and " + INV-" in reason
+
+
+def test_case_11_overpayment(outcome):
+    [reason] = check_case(outcome, 11)
+    assert "Overpayment" in reason and "$100.00 more than recorded" in reason
 
 
 def test_case_10_duplicate_bank_line(outcome):
@@ -138,8 +143,8 @@ def test_every_line_appears_exactly_once(outcome):
         book_lines += [t.line for t in match.books]
     bank_lines += [t.line for t in result.bank_only]
     book_lines += [t.line for t in result.books_only]
-    assert sorted(bank_lines) == list(range(2, 63))   # 61 líneas del banco, sin repetir
-    assert sorted(book_lines) == list(range(2, 68))   # 66 asientos, sin repetir
+    assert sorted(bank_lines) == list(range(2, 64))   # 62 líneas del banco, sin repetir
+    assert sorted(book_lines) == list(range(2, 69))   # 67 asientos, sin repetir
 
 
 def test_every_match_has_a_reason(outcome):
@@ -223,3 +228,53 @@ def test_transposed_check_is_paired_but_not_matched():
     assert match.status == REVIEW and match.cleared
     assert match.discrepancy == Decimal("-90.00")
     assert "swapped" in match.reason and "check 1052" in match.reason
+
+
+# ---------- paso 9: varios asientos, parciales y pagos de más ----------
+
+def test_one_deposit_for_three_entries_is_probable():
+    bank = [tx("bank", 2, 20, "600.00", "ACH CREDIT FOX RUN TOWNHOMES")]
+    books = [tx("books", 2, 12, "100.00", "Fox Run Townhomes", "INV-1021"),
+             tx("books", 3, 14, "200.00", "Fox Run Townhomes", "INV-1034"),
+             tx("books", 4, 16, "300.00", "Fox Run Townhomes", "INV-1040"),
+             tx("books", 5, 25, "999.00", "Bluebird Bakery", "INV-1050")]
+    result = reconcile(bank, books)
+    [match] = result.review
+    assert match.status == PROBABLE and match.cleared
+    assert [e.reference for e in match.books] == ["INV-1021", "INV-1034", "INV-1040"]
+    assert match.reason.startswith("Pays INV-1021 + INV-1034 + INV-1040")
+
+
+def test_several_combinations_go_to_review_with_the_options():
+    bank = [tx("bank", 2, 20, "300.00", "MOBILE DEPOSIT")]
+    books = [tx("books", 2, 15, "100.00", "A Customer", "INV-1"),
+             tx("books", 3, 16, "200.00", "B Customer", "INV-2"),
+             tx("books", 4, 17, "150.00", "C Customer", "INV-3"),
+             tx("books", 5, 18, "150.00", "D Customer", "INV-4")]
+    [match] = reconcile(bank, books).review
+    assert match.status == REVIEW and not match.cleared
+    assert "2 combinations" in match.reason
+    assert "option 1: INV-1 + INV-2" in match.reason and "option 2: INV-3 + INV-4" in match.reason
+
+
+def test_combinations_outside_the_window_are_ignored():
+    bank = [tx("bank", 2, 30, "300.00", "MOBILE DEPOSIT")]
+    books = [tx("books", 2, 1, "100.00", "A", "INV-1"), tx("books", 3, 2, "200.00", "B", "INV-2")]
+    result = reconcile(bank, books)
+    assert result.review == [] and len(result.books_only) == 2
+
+
+def test_partial_payment_of_a_bill():
+    bank = [tx("bank", 2, 10, "-400.00", "ACH DEBIT QUICK FIX ELECTRIC")]
+    books = [tx("books", 2, 8, "-1000.00", "Quick Fix Electric", "BILL-9")]
+    [match] = reconcile(bank, books).review
+    assert match.reason == "Partial payment? Paid $400.00 of BILL-9 ($1,000.00); $600.00 still open"
+
+
+def test_overpayment_needs_the_same_name():
+    bank = [tx("bank", 2, 10, "1000.00", "ACH CREDIT CEDAR HILL KENNELS")]
+    books = [tx("books", 2, 8, "900.00", "Cedar Hill Kennels", "INV-7"),
+             tx("books", 3, 8, "950.00", "Someone Else Entirely", "INV-8")]
+    [match] = reconcile(bank, books).review
+    assert [e.reference for e in match.books] == ["INV-7"]
+    assert "Overpayment? Received $1,000.00 for INV-7 ($900.00); $100.00 more than recorded" == match.reason

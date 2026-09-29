@@ -149,12 +149,12 @@ def test_both_sample_bank_formats_read_the_same():
     single, bad1 = read_transactions(SAMPLES / "bank.csv", "bank")
     split, bad2 = read_transactions(SAMPLES / "bank_debit_credit.csv", "bank")
     assert bad1 == [] and bad2 == []
-    assert len(single) == 61
+    assert len(single) == 62
     assert [(t.date, t.amount) for t in single] == [(t.date, t.amount) for t in split]
 
 
 def test_sample_books_read_with_negatives_in_parentheses():
     rows, bad = read_transactions(SAMPLES / "books.csv", "books")
     assert bad == []
-    assert len(rows) == 66
+    assert len(rows) == 67
     assert any(r.amount < 0 for r in rows) and any(r.amount > 0 for r in rows)

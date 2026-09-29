@@ -5,6 +5,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from reconcile import main
+from reconciliation import load_balances
 
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLES = ROOT / "sample_data"
@@ -40,8 +41,10 @@ def test_cli_with_error_sample_explains_difference(tmp_path, capsys):
 
 
 def test_cli_balances_given_by_hand_override_the_file(tmp_path, capsys):
+    bank_balance, book_balance = load_balances(SAMPLES)
     code = main([str(SAMPLES / "bank.csv"), str(SAMPLES / "books.csv"),
-                 "--bank-balance", "$93,505.90", "--book-balance", "101,962.94", "-o", str(tmp_path / "r.xlsx")])
+                 "--bank-balance", f"${bank_balance:,.2f}", "--book-balance", f"{book_balance:,.2f}",
+                 "-o", str(tmp_path / "r.xlsx")])
     assert code == 0
     printed = capsys.readouterr().out
     assert "balances.json" not in printed and "RECONCILED" in printed
