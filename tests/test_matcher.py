@@ -208,8 +208,10 @@ def test_sample_data_is_reproducible(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "ERROR_DIR", tmp_path / "error")
     module.main()
     for folder, saved in [("ok", SAMPLES), ("error", ROOT / "sample_data_error")]:
-        for path in saved.iterdir():
-            assert (tmp_path / folder / path.name).read_text() == path.read_text(), path
+        for path in saved.rglob("*"):
+            if path.is_file():
+                copy = tmp_path / folder / path.relative_to(saved)
+                assert copy.read_text() == path.read_text(), path
 
 
 def test_transposed_digits():

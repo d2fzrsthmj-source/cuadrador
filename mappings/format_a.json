@@ -1,0 +1,10 @@
+{
+  "name": "format_a",
+  "description": "Single amount column (negative = money out)",
+  "columns": {
+    "date": "Txn Date",
+    "description": "Narrative",
+    "amount": "Net Amount",
+    "reference": "Serial No"
+  }
+}

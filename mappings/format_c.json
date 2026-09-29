@@ -1,0 +1,9 @@
+{
+  "name": "format_c",
+  "description": "Date column with a different name, single amount column",
+  "columns": {
+    "date": "Effective Dt",
+    "description": "Payee Info",
+    "amount": "Amt"
+  }
+}

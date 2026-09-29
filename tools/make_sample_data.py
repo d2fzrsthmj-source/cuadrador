@@ -11,6 +11,8 @@ Crea dos juegos de datos:
     books.csv              el registro de la cuenta en los libros (estilo QuickBooks)
     balances.json          saldo final del banco y de los libros
     expected.csv           la "hoja de respuestas": qué debe pasar con cada caso difícil
+    formats/format_*.csv   el mismo estado de cuenta en 3 formatos distintos (ver mappings/),
+                           con líneas de texto antes del encabezado
 
   sample_data_error/       lo mismo, pero con un error escondido en los libros:
                            un cheque de $540.00 registrado como $450.00 (dígitos invertidos)
@@ -327,6 +329,53 @@ def write_bank_debit_credit(folder, bank):
             writer.writerow([line["date"].isoformat(), line["description"], debit, credit])
 
 
+# Líneas de texto que algunos bancos ponen ANTES del encabezado (todo ficticio)
+PREAMBLE = [
+    ["Example Community Bank (fictional)"],
+    ["Account: Business Checking ending in 0000"],
+    ["Statement period: 08/01/2026 - 08/31/2026"],
+    [],
+]
+
+
+def check_number(line):
+    """'CHECK 1043' -> '1043'; cualquier otra descripción -> ''."""
+    return line["description"].split()[1] if line["description"].startswith("CHECK ") else ""
+
+
+def write_format_samples(folder, bank):
+    """El mismo estado de cuenta en los 3 formatos de ejemplo de mappings/."""
+    folder.mkdir(exist_ok=True)
+
+    # format_a: una columna de monto y el número de cheque aparte
+    with open(folder / "format_a.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(PREAMBLE)
+        writer.writerow(["Txn Date", "Narrative", "Serial No", "Net Amount"])
+        for line in bank:
+            writer.writerow([us_date(line["date"]), line["description"], check_number(line),
+                             plain_amount(line["amount"])])
+
+    # format_b: columnas separadas para lo que sale y lo que entra
+    with open(folder / "format_b.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(PREAMBLE)
+        writer.writerow(["Value Date", "Details", "Ref No", "Money Out", "Money In"])
+        for line in bank:
+            out = f"{abs(line['amount']):.2f}" if line["amount"] < 0 else ""
+            into = f"{line['amount']:.2f}" if line["amount"] > 0 else ""
+            writer.writerow([line["date"].isoformat(), line["description"], check_number(line), out, into])
+
+    # format_c: fecha con otro nombre y año de 2 cifras; negativos entre paréntesis
+    with open(folder / "format_c.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(PREAMBLE[:2])
+        writer.writerow(["Effective Dt", "Payee Info", "Amt"])
+        for line in bank:
+            amount = f"(${abs(line['amount']):,.2f})" if line["amount"] < 0 else f"${line['amount']:,.2f}"
+            writer.writerow([line["date"].strftime("%m/%d/%y"), line["description"], amount])
+
+
 def write_books(folder, books):
     with open(folder / "books.csv", "w", newline="") as f:
         writer = csv.writer(f)
@@ -372,6 +421,7 @@ def write_files(builder):
     write_books(OUT_DIR, builder.books)
     write_balances(OUT_DIR, builder.bank, builder.books)
     write_expected(OUT_DIR, builder.cases)
+    write_format_samples(OUT_DIR / "formats", builder.bank)
 
     # El juego con error: mismo banco, pero un asiento de los libros con dígitos invertidos
     books_with_error = copy.deepcopy(builder.books)

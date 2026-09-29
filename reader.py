@@ -33,6 +33,9 @@ DATE_FORMATS = ["%m/%d/%Y", "%Y-%m-%d", "%m/%d/%y", "%m-%d-%Y"]
 
 CENT = Decimal("0.01")
 
+# Cuántas filas del principio revisamos buscando el encabezado
+MAX_HEADER_SCAN = 30
+
 
 @dataclass
 class Transaction:
@@ -92,29 +95,82 @@ def parse_amount(text):
     return amount.quantize(CENT)
 
 
-def find_columns(header, column_map=None):
-    """Decide qué columna del archivo corresponde a cada dato.
+class UnknownColumns(ValueError):
+    """No encontramos las columnas de fecha y monto. Guarda las columnas del archivo
+    para que la pantalla web pueda preguntarle a la persona cuál es cuál."""
 
-    `column_map` permite forzar nombres, por ejemplo {"date": "Fecha Pago"}.
-    Devuelve un dict dato -> posición de la columna.
+    def __init__(self, message, columns):
+        super().__init__(message)
+        self.columns = columns
+
+
+def match_columns(header, column_map=None):
+    """Decide qué columna de esta fila corresponde a cada dato.
+
+    Sin `column_map`, usa los nombres conocidos (DEFAULT_COLUMNS).
+    Con `column_map` (por ejemplo {"date": "Fecha Pago", "amount": "Importe"}) busca
+    exactamente esos nombres, y TODOS tienen que estar en la fila.
+    Devuelve un dict dato -> posición de la columna, o None si esta fila no sirve.
     """
     names = [h.strip().lower() for h in header]
     found = {}
-    for field, aliases in DEFAULT_COLUMNS.items():
-        if column_map and field in column_map:
-            aliases = [column_map[field].strip().lower()]
-        for alias in aliases:
-            if alias in names:
-                found[field] = names.index(alias)
-                break
+    if column_map:
+        for field, column in column_map.items():
+            if column.strip().lower() not in names:
+                return None
+            found[field] = names.index(column.strip().lower())
+    else:
+        for field, aliases in DEFAULT_COLUMNS.items():
+            for alias in aliases:
+                if alias in names:
+                    found[field] = names.index(alias)
+                    break
+    has_amount = "amount" in found or "debit" in found or "credit" in found
+    return found if "date" in found and has_amount else None
 
+
+def find_header(rows, column_map=None, formats=None):
+    """Busca la fila del encabezado, aunque haya líneas de texto antes (nombre del banco, etc.).
+
+    Prueba, en orden: el mapeo que nos dieron; si no hay, los formatos guardados
+    (mappings/*.json) y luego los nombres conocidos. Devuelve
+    (posición de la fila del encabezado, columnas, nombre del formato usado).
+    """
+    if column_map:
+        attempts = [("custom", column_map)]
+    else:
+        attempts = list((formats or {}).items()) + [("standard", None)]
+    for name, mapping in attempts:
+        for index, (_, row) in enumerate(rows[:MAX_HEADER_SCAN]):
+            columns = match_columns(row, mapping)
+            if columns:
+                return index, columns, name
+
+    # No encontramos nada: armar un mensaje claro con las columnas que sí hay
+    header = guess_header(rows)
     columns_text = ", ".join(h.strip() for h in header)
-    if "date" not in found:
-        raise ValueError(f"Could not find a date column. Columns in the file: {columns_text}")
-    if "amount" not in found and not ("debit" in found or "credit" in found):
-        raise ValueError(f"Could not find an Amount column (or Debit/Credit columns). "
-                         f"Columns in the file: {columns_text}")
-    return found
+    date_aliases = set(DEFAULT_COLUMNS["date"])
+    if any(cell.strip().lower() in date_aliases for _, row in rows[:MAX_HEADER_SCAN] for cell in row):
+        message = f"Could not find an Amount column (or Debit/Credit columns). Columns in the file: {columns_text}"
+    else:
+        message = f"Could not find a date column. Columns in the file: {columns_text}"
+    raise UnknownColumns(message, [h.strip() for h in header if h.strip()])
+
+
+def guess_header(rows):
+    """La fila más probable de encabezado: la primera con más celdas llenas."""
+    candidates = rows[:MAX_HEADER_SCAN]
+    widest = max(sum(1 for c in row if c.strip()) for _, row in candidates)
+    return next(row for _, row in candidates if sum(1 for c in row if c.strip()) == widest)
+
+
+def read_rows(source_file):
+    """Todas las filas no vacías del CSV, cada una con su número de línea en el archivo."""
+    reader = csv.reader(io.StringIO(_open_text(source_file)))
+    rows = [(reader.line_num, row) for row in reader if any(cell.strip() for cell in row)]
+    if not rows:
+        raise ValueError("The file is empty.")
+    return rows
 
 
 def _cell(row, columns, field):
@@ -152,29 +208,19 @@ def _open_text(source_file):
     return content
 
 
-def read_transactions(source_file, source, column_map=None):
+def read_transactions(source_file, source, column_map=None, formats=None):
     """Lee un CSV y devuelve (transacciones, líneas_con_problema).
 
-    `source` es "bank" o "books". Si falta una columna esencial (fecha o monto),
-    lanza ValueError: en ese caso el archivo entero no sirve.
+    `source` es "bank" o "books". `column_map` fuerza un mapeo de columnas;
+    `formats` son los mapeos guardados que se prueban si no se da ninguno.
+    Si no se encuentran las columnas de fecha y monto, lanza UnknownColumns
+    (un ValueError): en ese caso el archivo entero no sirve tal como está.
     """
-    reader = csv.reader(io.StringIO(_open_text(source_file)))
-
-    # El encabezado es la primera fila que no esté vacía
-    header = None
-    for row in reader:
-        if any(cell.strip() for cell in row):
-            header = row
-            break
-    if header is None:
-        raise ValueError("The file is empty.")
-    columns = find_columns(header, column_map)
+    rows = read_rows(source_file)
+    header_index, columns, _ = find_header(rows, column_map, formats)
 
     transactions, bad_lines = [], []
-    for row in reader:
-        if not any(cell.strip() for cell in row):
-            continue  # línea en blanco: se ignora sin avisar
-        line = reader.line_num
+    for line, row in rows[header_index + 1:]:
         try:
             transactions.append(Transaction(
                 source=source,
@@ -187,4 +233,3 @@ def read_transactions(source_file, source, column_map=None):
         except ValueError as error:
             bad_lines.append(BadLine(source, line, str(error), ",".join(row)))
     return transactions, bad_lines
-

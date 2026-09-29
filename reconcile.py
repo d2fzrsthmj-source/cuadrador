@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 from excel_report import save_report
+from formats import load_formats
 from matcher import money, reconcile
 from reader import parse_amount, read_transactions
 from reconciliation import build_reconciliation, load_balances
@@ -24,10 +25,16 @@ from reconciliation import build_reconciliation, load_balances
 DEFAULT_OUTPUT = Path("output") / "reconciliation.xlsx"
 
 
-def reconcile_files(bank_file, books_file, bank_balance=None, book_balance=None):
-    """Lee los dos archivos, los empareja y arma la conciliación. Devuelve (result, recon)."""
-    bank, bad_bank = read_transactions(bank_file, "bank")
-    books, bad_books = read_transactions(books_file, "books")
+def reconcile_files(bank_file, books_file, bank_balance=None, book_balance=None,
+                    bank_columns=None, books_columns=None):
+    """Lee los dos archivos, los empareja y arma la conciliación. Devuelve (result, recon).
+
+    Si no se da un mapeo de columnas, se prueban los formatos guardados en mappings/
+    y luego los nombres de columna conocidos.
+    """
+    formats = load_formats()
+    bank, bad_bank = read_transactions(bank_file, "bank", bank_columns, formats)
+    books, bad_books = read_transactions(books_file, "books", books_columns, formats)
     result = reconcile(bank, books)
     result.bad_lines = bad_bank + bad_books
     return result, build_reconciliation(result, bank_balance, book_balance)

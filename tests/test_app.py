@@ -55,10 +55,16 @@ def test_missing_file_shows_error(client):
     assert "choose both" in response.get_data(as_text=True)
 
 
-def test_wrong_columns_show_error(client):
+def test_wrong_columns_ask_which_is_which(client):
     response = upload(client, b"Foo,Bar\n1,2\n", (SAMPLES / "books.csv").read_bytes())
+    assert response.status_code == 200
+    assert "Which column is which?" in response.get_data(as_text=True)
+
+
+def test_empty_file_shows_error(client):
+    response = upload(client, b"", (SAMPLES / "books.csv").read_bytes())
     assert response.status_code == 400
-    assert "date column" in response.get_data(as_text=True)
+    assert "empty" in response.get_data(as_text=True)
 
 
 def test_broken_lines_are_listed(client):

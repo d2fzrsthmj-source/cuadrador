@@ -1,0 +1,11 @@
+{
+  "name": "format_b",
+  "description": "Separate money-out and money-in columns",
+  "columns": {
+    "date": "Value Date",
+    "description": "Details",
+    "debit": "Money Out",
+    "credit": "Money In",
+    "reference": "Ref No"
+  }
+}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Cuadrador – Match columns{% endblock %}
+{% block content %}
+<h1>Which column is which?</h1>
+<p class="muted">We didn't recognize the columns in {{ "this file" if unknown | length == 1 else "these files" }}. Tell us once and, if you want, save it as a format for next time.</p>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<form action="{{ url_for('apply_mapping', token=token) }}" method="post">
+  {% for which, columns in unknown.items() %}
+  <fieldset class="card mapping">
+    <legend>{{ file_labels[which] }}</legend>
+    <p class="muted">Columns found: {{ columns | join(", ") }}</p>
+    {% for field in fields %}
+    <label for="{{ which }}-{{ field }}">{{ field_labels[field] }}{% if field == "date" %} (required){% endif %}</label>
+    <select id="{{ which }}-{{ field }}" name="{{ which }}-{{ field }}">
+      <option value="">— none —</option>
+      {% for column in columns %}
+      <option value="{{ column }}" {% if chosen.get(which ~ '-' ~ field) == column %}selected{% endif %}>{{ column }}</option>
+      {% endfor %}
+    </select>
+    {% endfor %}
+    <p class="muted">Pick either one Amount column, or the Debit and Credit columns.</p>
+    <label for="{{ which }}-save_as">Save as a format (optional)</label>
+    <input id="{{ which }}-save_as" name="{{ which }}-save_as" type="text" placeholder="e.g. format_d"
+           value="{{ chosen.get(which ~ '-save_as', '') }}" pattern="[a-z0-9_]{1,40}">
+  </fieldset>
+  {% endfor %}
+  <button type="submit">Continue</button>
+  <a href="{{ url_for('upload_form') }}" style="margin-left: 12px;">Start over</a>
+</form>
+{% endblock %}
