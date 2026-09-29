@@ -2,6 +2,8 @@
 
 _Última actualización: 2026-09-29_
 
+**Publicado en GitHub:** https://github.com/d2fzrsthmj-source/cuadrador (rama `main`).
+
 ## Qué quedó hecho
 
 ### Pasos 1 a 7 (primera sesión)
@@ -57,16 +59,17 @@ y pantalla web mínima.
   para poder tomar capturas.
 - **Formatos guardados desde la web** van a `mappings/` y se versionan con git
   (solo son nombres de columnas, no datos).
-- **Autor de los commits:** en la primera sesión copié tu nombre y correo de hoja-ruta
-  a la configuración local de este repo. El nombre completo aparece en los 13 commits.
-  Si no quieres que se vea al publicar, hay que decidir antes del push (ver abajo).
+- **Autor de los commits:** nombre "Adrian Martinez" (decidido por el usuario) y el
+  correo privado de GitHub `331432424+d2fzrsthmj-source@users.noreply.github.com`,
+  configurado solo para este repo. Antes del push se verificó que todos los commits
+  (autor y committer) ya usaban ese correo; no hizo falta reescribir el historial.
 
 ## Qué falta
 - Lo que sigue está en `IDEAS.md` (PDF, login, versión en español, varias cuentas...).
-- No hay repositorio en GitHub todavía; no se ha hecho push.
+- Nada del plan. El repositorio ya está publicado (ver abajo).
 
 ## Último commit
-Ver `git log --oneline -1`.
+Ver `git log --oneline -1`. Publicado hasta el paso 14 (`5c4beda`) y este cambio de ESTADO.md.
 
 ## Cómo arrancarlo
 ```bash
@@ -79,15 +82,11 @@ python tools/make_sample_data.py                                              # 
 python app.py                                                                 # web: http://127.0.0.1:5001
 ```
 
-## Preparado para GitHub (sin push)
-`.gitignore` revisado: deja fuera venv/, cachés, output/, *.xlsx, tmp/, uploads/,
-.env, archivos del sistema y de editores, y registros.
-
-Cuando el repositorio exista en GitHub ("repo listo"), estos son los comandos exactos:
+## GitHub
+Publicado el 2026-09-29 por SSH en `git@github.com:d2fzrsthmj-source/cuadrador.git`
+(repositorio público). `main` sigue a `origin/main`. Para subir cambios nuevos:
 ```bash
-cd ~/cuadrador
-git remote add origin git@github.com:d2fzrsthmj-source/cuadrador.git
-git push -u origin main
+git push
 ```
-Antes del push, decidir si el nombre completo del autor de los commits debe verse
-(ver "Decisiones tomadas por mi cuenta").
+`.gitignore` deja fuera venv/, cachés, output/, *.xlsx, tmp/, uploads/, .env,
+archivos del sistema y de editores, y registros.
