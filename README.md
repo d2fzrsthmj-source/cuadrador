@@ -1,5 +1,9 @@
 # Cuadrador — bank reconciliation for small businesses
 
+![Cuadrador demo: a reconciliation that balances to $0.00, then one where a $540.00 check recorded as $450.00 is found](docs/demo.gif)
+
+*36-second demo with made-up data. [Watch it as MP4](docs/demo.mp4).*
+
 Every month, someone at a small business or a bookkeeping office sits down with two lists — the bank statement and the checking account register from the books — and ticks them off against each other, line by line, until the numbers agree. It is slow, it is easy to lose your place, and the few lines that actually matter are buried under dozens that match without any trouble.
 
 **Cuadrador does the ticking for you.** You give it the two files. It pairs every bank line with its entry in the books, builds the standard bank reconciliation an accountant expects, and shows you **only what needs a person**: the lines it could not match, the ones it is unsure about, and, if the books don't balance, the most likely reason why.
