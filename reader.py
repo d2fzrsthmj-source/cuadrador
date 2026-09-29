@@ -37,11 +37,11 @@ CENT = Decimal("0.01")
 @dataclass
 class Transaction:
     """Una línea ya leída, sea del banco o de facturas."""
-    source: str          # "bank" o "invoice"
+    source: str          # "bank" o "books"
     line: int            # número de línea en el archivo (la 1 es el encabezado)
     date: date
     amount: Decimal
-    description: str     # en el banco: la descripción; en facturas: el cliente o proveedor
+    description: str     # en el banco: la descripción; en los libros: el nombre (cliente, proveedor...)
     reference: str = ""  # número de cheque o de factura, si lo hay
 
 
@@ -155,7 +155,7 @@ def _open_text(source_file):
 def read_transactions(source_file, source, column_map=None):
     """Lee un CSV y devuelve (transacciones, líneas_con_problema).
 
-    `source` es "bank" o "invoice". Si falta una columna esencial (fecha o monto),
+    `source` es "bank" o "books". Si falta una columna esencial (fecha o monto),
     lanza ValueError: en ese caso el archivo entero no sirve.
     """
     reader = csv.reader(io.StringIO(_open_text(source_file)))

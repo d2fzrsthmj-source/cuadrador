@@ -85,7 +85,7 @@ def test_custom_column_map():
     rows, bad = read_transactions(csv_text(
         "Fecha Pago,Cliente,Importe,Folio",
         "08/01/2026,Bluebird Bakery,100.00,INV-9",
-    ), "invoice", column_map={"date": "Fecha Pago", "description": "Cliente",
+    ), "books", column_map={"date": "Fecha Pago", "description": "Cliente",
                                "amount": "Importe", "reference": "Folio"})
     assert bad == []
     assert rows[0].date == date(2026, 8, 1)
@@ -149,12 +149,12 @@ def test_both_sample_bank_formats_read_the_same():
     single, bad1 = read_transactions(SAMPLES / "bank.csv", "bank")
     split, bad2 = read_transactions(SAMPLES / "bank_debit_credit.csv", "bank")
     assert bad1 == [] and bad2 == []
-    assert len(single) == 60
+    assert len(single) == 61
     assert [(t.date, t.amount) for t in single] == [(t.date, t.amount) for t in split]
 
 
-def test_sample_invoices_read_with_negatives_in_parentheses():
-    rows, bad = read_transactions(SAMPLES / "invoices.csv", "invoice")
+def test_sample_books_read_with_negatives_in_parentheses():
+    rows, bad = read_transactions(SAMPLES / "books.csv", "books")
     assert bad == []
-    assert len(rows) == 57
+    assert len(rows) == 66
     assert any(r.amount < 0 for r in rows) and any(r.amount > 0 for r in rows)

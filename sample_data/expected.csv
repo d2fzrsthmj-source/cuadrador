@@ -1,66 +1,69 @@
-case,note,bank_lines,invoice_refs,expected_status
-1,"Exact match: same amount, same date",2,INV-5010,Matched
-1,"Exact match: same amount, same date",36,INV-5011,Matched
-1,"Exact match: same amount, same date",39,INV-5012,Matched
-1,"Exact match: same amount, same date",17,INV-5013,Matched
-1,"Exact match: same amount, same date",4,INV-5014,Matched
-1,"Exact match: same amount, same date",48,INV-5015,Matched
-1,"Exact match: same amount, same date",33,INV-5016,Matched
-1,"Exact match: same amount, same date",7,INV-5017,Matched
-1,"Exact match: same amount, same date",3,BILL-3004,Matched
-1,"Exact match: same amount, same date",22,BILL-3005,Matched
-1,"Exact match: same amount, same date",6,BILL-3006,Matched
-2,"Same amount, bank date 5 day(s) later",9,INV-5018,Matched
-2,"Same amount, bank date 5 day(s) later",11,INV-5019,Matched
-2,"Same amount, bank date 2 day(s) later",28,INV-5020,Matched
-2,"Same amount, bank date 2 day(s) later",49,INV-5021,Matched
-2,"Same amount, bank date 4 day(s) later",18,INV-5022,Matched
-2,"Same amount, bank date 5 day(s) later",32,INV-5023,Matched
-2,"Same amount, bank date 2 day(s) later",10,INV-5024,Matched
-2,"Same amount, bank date 4 day(s) later",23,INV-5025,Matched
-2,"Same amount, bank date 5 day(s) later",15,INV-5026,Matched
+case,note,bank_lines,book_refs,expected_status
+1,Recorded in the books: Transfer to savings,2,TRF-0803,Matched
+1,Recorded in the books: Equipment loan,6,LOAN-08,Matched
+1,Recorded in the books: Payroll,26,PR-0814,Matched
+1,Recorded in the books: Payroll,59,PR-0828,Matched
+1,Recorded in the books: Bank fee - wire,27,FEE-0814,Matched
+1,Recorded in the books: Merchant services fee,42,FEE-0820,Matched
+1,"Exact match: same amount, same date",37,INV-5009,Matched
+1,"Exact match: same amount, same date",53,INV-5010,Matched
+1,"Exact match: same amount, same date",19,INV-5011,Matched
+1,"Exact match: same amount, same date",3,INV-5012,Matched
+1,"Exact match: same amount, same date",11,INV-5013,Matched
+1,"Exact match: same amount, same date",23,INV-5014,Matched
+1,"Exact match: same amount, same date",29,INV-5015,Matched
+1,"Exact match: same amount, same date",30,INV-5016,Matched
+1,"Exact match: same amount, same date",4,BILL-3004,Matched
+1,"Exact match: same amount, same date",31,BILL-3005,Matched
+1,"Exact match: same amount, same date",20,BILL-3006,Matched
+2,"Same amount, bank date 2 day(s) later",44,INV-5017,Matched
+2,"Same amount, bank date 1 day(s) later",12,INV-5018,Matched
+2,"Same amount, bank date 3 day(s) later",24,INV-5019,Matched
+2,"Same amount, bank date 4 day(s) later",21,INV-5020,Matched
+2,"Same amount, bank date 5 day(s) later",45,INV-5021,Matched
+2,"Same amount, bank date 2 day(s) later",8,INV-5022,Matched
+2,"Same amount, bank date 4 day(s) later",25,INV-5023,Matched
+2,"Same amount, bank date 5 day(s) later",17,INV-5024,Matched
+2,"Same amount, bank date 3 day(s) later",15,INV-5025,Matched
+2,"Same amount, bank date 4 day(s) later",13,INV-5026,Matched
 2,"Same amount, bank date 3 day(s) later",55,INV-5027,Matched
-2,"Same amount, bank date 5 day(s) later",14,INV-5028,Matched
-2,"Same amount, bank date 3 day(s) later",42,INV-5029,Matched
-2,"Same amount, bank date 1 day(s) later",37,BILL-3007,Matched
-2,"Same amount, bank date 1 day(s) later",16,BILL-3008,Matched
-2,"Same amount, bank date 3 day(s) later",26,BILL-3009,Matched
-2,"Same amount, bank date 4 day(s) later",52,BILL-3010,Matched
-3,Different spelling: 'J SMITH PLUMBING' vs 'John Smith Plumbing LLC',27,BILL-3001,Probable
-4,Check number 1040 in bank description,61,1040,Matched
-4,Check number 1041 in bank description,19,1041,Matched
-4,Check number 1042 in bank description,31,1042,Matched
-4,Check number 1043 in bank description,43,1043,Matched
-4,Check number 1044 in bank description,40,1044,Matched
-4,Check number 1045 in bank description,20,1045,Matched
-4,Check number 1046 in bank description,50,1046,Matched
-4,Check number 1047 in bank description,57,1047,Matched
-4,Check number 1048 in bank description,34,1048,Matched
-4,Check number 1049 in bank description,5,1049,Matched
-4,Check number 1050 in bank description,44,1050,Matched
-4,Check number 1051 in bank description,45,1051,Matched
-4,Invoice number 5030 in bank description,51,INV-5030,Matched
-4,Invoice number 5031 in bank description,54,INV-5031,Matched
-4,Invoice number 5032 in bank description,12,INV-5032,Matched
-4,Invoice number 5033 in bank description,24,INV-5033,Matched
-4,Invoice number 5034 in bank description,41,INV-5034,Matched
-4,Invoice number 5035 in bank description,58,INV-5035,Matched
-5,"Two invoices with the same amount, deposit has no name: ambiguous",35,INV-5001;INV-5002,Review
-6,Bank-only item: Online Transfer To Savings Xxxx0000,8,,Unmatched in bank
-6,Bank-only item: Equipment Loan Payment,13,,Unmatched in bank
-6,Bank-only item: Payroll Transfer,29,,Unmatched in bank
-6,Bank-only item: Payroll Transfer,56,,Unmatched in bank
-6,Bank-only item: Wire Transfer Fee,30,,Unmatched in bank
-6,Bank-only item: Merchant Services Fee,38,,Unmatched in bank
-6,Bank-only item: Returned Item Fee,53,,Unmatched in bank
-6,Bank-only item: Monthly Service Fee,59,,Unmatched in bank
-6,Bank-only item: Interest Payment,60,,Unmatched in bank
-7,Unpaid bill with the same amount as the Smith payment,,BILL-3002,Unmatched invoice
-7,Invoice not paid yet,,INV-5003,Unmatched invoice
-7,Invoice not paid yet,,INV-5004,Unmatched invoice
-7,Invoice not paid yet,,INV-5005,Unmatched invoice
-7,Invoice not paid yet,,INV-5006,Unmatched invoice
-8,"Partial payment: paid 3,000.00 of a 4,200.00 invoice",21,INV-5007,Review
-9,"One payment covers two invoices (1,500.00 + 1,275.50)",25,INV-5008;INV-5009,Review
-10,Original of a duplicated bank line,46,BILL-3003,Matched
-10,"Duplicated bank line (same date, description and amount)",47,,Review
+2,"Same amount, bank date 1 day(s) later",50,INV-5028,Matched
+2,"Same amount, bank date 3 day(s) later",46,BILL-3007,Matched
+2,"Same amount, bank date 4 day(s) later",47,BILL-3008,Matched
+2,"Same amount, bank date 5 day(s) later",51,BILL-3009,Matched
+2,"Same amount, bank date 2 day(s) later",5,BILL-3010,Matched
+3,Different spelling: 'J SMITH PLUMBING' vs 'John Smith Plumbing LLC',18,BILL-3001,Probable
+4,Check number 1043 in bank description,36,1043,Matched
+4,Check number 1044 in bank description,39,1044,Matched
+4,Check number 1045 in bank description,56,1045,Matched
+4,Check number 1046 in bank description,54,1046,Matched
+4,Check number 1047 in bank description,22,1047,Matched
+4,Check number 1048 in bank description,40,1048,Matched
+4,Check number 1049 in bank description,9,1049,Matched
+4,Check number 1050 in bank description,52,1050,Matched
+4,Check number 1051 in bank description,43,1051,Matched
+4,Check number 1052 in bank description,58,1052,Matched
+4,Check number 1053 in bank description,41,1053,Matched
+4,Check number 1054 in bank description,32,1054,Matched
+4,Check number 1055 in bank description,62,1055,Matched
+4,Invoice number 5029 in bank description,10,INV-5029,Matched
+4,Invoice number 5030 in bank description,33,INV-5030,Matched
+4,Invoice number 5031 in bank description,28,INV-5031,Matched
+4,Invoice number 5032 in bank description,34,INV-5032,Matched
+4,Invoice number 5033 in bank description,35,INV-5033,Matched
+4,Invoice number 5034 in bank description,7,INV-5034,Matched
+5,"Two book entries with the same amount, deposit has no name: ambiguous",38,INV-5001;INV-5002,Review
+6,"Bank-only item, not recorded yet: Returned Item Fee",57,,Bank only
+6,"Bank-only item, not recorded yet: Monthly Service Fee",60,,Bank only
+6,"Bank-only item, not recorded yet: Interest Payment",61,,Bank only
+7,"Payment recorded, not yet in the bank (same amount as the Smith payment)",,BILL-3002,Books only
+7,"Deposit in transit: recorded, not yet in the bank",,INV-5003,Books only
+7,"Deposit in transit: recorded, not yet in the bank",,INV-5004,Books only
+7,"Deposit in transit: recorded, not yet in the bank",,INV-5005,Books only
+7,"Outstanding check: written, not yet cashed",,1040,Books only
+7,"Outstanding check: written, not yet cashed",,1041,Books only
+7,"Outstanding check: written, not yet cashed",,1042,Books only
+8,"Partial payment: 3,000.00 received of 4,200.00",14,INV-5006,Review
+9,"One deposit covers two entries (1,500.00 + 1,275.50)",16,INV-5007;INV-5008,Review
+10,Original of a duplicated bank line,48,BILL-3003,Matched
+10,"Duplicated bank line (same date, description and amount)",49,,Review

@@ -1,10 +1,9 @@
-"""Exporta el resultado del emparejamiento a un archivo Excel.
+"""Exporta el resultado de la conciliación a un archivo Excel.
 
-Hojas: Summary, Matched, Review, Unmatched bank, Unmatched invoices.
+Hojas: Summary, Matched, Review, Unmatched bank, Unmatched books.
 Los textos van en inglés porque el Excel es para los clientes (negocios de EE. UU.).
 """
 
-from decimal import Decimal
 from itertools import zip_longest
 
 from openpyxl import Workbook
@@ -14,39 +13,43 @@ from openpyxl.styles import Alignment, Font, PatternFill
 MONEY_FORMAT = '"$"#,##0.00;[Red]-"$"#,##0.00'
 DATE_FORMAT = "mm/dd/yyyy"
 HEADER_FONT = Font(bold=True, color="FFFFFF")
-HEADER_FILL = PatternFill("solid", fgColor="2F5597")
+HEADER_FILL = PatternFill("solid", fgColor="1F3A5F")
 MAX_COLUMN_WIDTH = 70
 
 MATCH_HEADERS = ["Status", "Bank line", "Bank date", "Bank description", "Bank amount",
-                 "Invoice #", "Invoice date", "Customer / vendor", "Invoice amount", "Reason"]
+                 "Book ref", "Book date", "Book name", "Book amount", "Reason"]
 
 
 def match_rows(match):
-    """Una fila por cada pareja banco/factura del grupo (un pago de 2 facturas ocupa 2 filas)."""
+    """Una fila por cada pareja banco/libros del grupo (un depósito de 2 asientos ocupa 2 filas)."""
     rows = []
-    for bank, invoice in zip_longest(match.bank, match.invoices):
+    for bank, entry in zip_longest(match.bank, match.books):
         rows.append([
             match.status,
             bank.line if bank else None,
             bank.date if bank else None,
             bank.description if bank else None,
             bank.amount if bank else None,
-            invoice.reference if invoice else None,
-            invoice.date if invoice else None,
-            invoice.description if invoice else None,
-            invoice.amount if invoice else None,
+            entry.reference if entry else None,
+            entry.date if entry else None,
+            entry.description if entry else None,
+            entry.amount if entry else None,
             match.reason,
         ])
     return rows
 
 
-def write_table(sheet, headers, rows):
-    """Escribe encabezado + filas, da formato a fechas y dinero, y ajusta el ancho de columnas."""
-    sheet.append(headers)
-    for cell in sheet[1]:
+def style_header(row):
+    for cell in row:
         cell.font = HEADER_FONT
         cell.fill = HEADER_FILL
         cell.alignment = Alignment(vertical="center")
+
+
+def write_table(sheet, headers, rows):
+    """Escribe encabezado + filas, da formato a fechas y dinero, y ajusta el ancho de columnas."""
+    sheet.append(headers)
+    style_header(sheet[1])
     for row in rows:
         sheet.append(row)
     sheet.freeze_panes = "A2"  # el encabezado queda fijo al bajar
@@ -79,47 +82,64 @@ def autosize(sheet):
         sheet.column_dimensions[column[0].column_letter].width = min(longest + 3, MAX_COLUMN_WIDTH)
 
 
-def write_summary(sheet, result):
+def write_reconciliation_lines(sheet, recon, start_row):
+    """Los renglones del formato estándar (saldo, + depósitos, − cheques, ...). Devuelve la fila siguiente."""
+    row = start_row
+    for label, amount, kind in recon.lines():
+        if label in ("Book ending balance", "Difference"):
+            row += 1   # renglón en blanco entre bloques
+        sheet.cell(row=row, column=1, value=label)
+        cell = sheet.cell(row=row, column=2, value=amount if amount is not None else "not given")
+        if amount is not None:
+            cell.number_format = MONEY_FORMAT
+        if kind in ("total", "difference"):
+            sheet.cell(row=row, column=1).font = Font(bold=True)
+            cell.font = Font(bold=True)
+        row += 1
+    status = ("Enter both ending balances to get the difference" if not recon.is_complete
+              else "RECONCILED" if recon.is_balanced else "NOT RECONCILED")
+    sheet.cell(row=row, column=1, value=status).font = Font(bold=True)
+    row += 1
+    for hint in recon.hints():
+        sheet.cell(row=row, column=1, value=hint)
+        row += 1
+    return row + 1
+
+
+def write_summary(sheet, result, recon):
     sheet["A1"] = "Bank reconciliation"
     sheet["A1"].font = Font(bold=True, size=14)
-    rows = [
-        ("Matched", len(result.matched), None),
-        ("Needs review", len(result.review), None),
-        ("Not matched - bank lines", len(result.unmatched_bank), None),
-        ("Not matched - invoices", len(result.unmatched_invoices), None),
-        (None, None, None),
-        ("Bank total", result.bank_total, MONEY_FORMAT),
-        ("Invoices total", result.invoice_total, MONEY_FORMAT),
-        ("Difference (bank - invoices)", result.difference, MONEY_FORMAT),
-        (None, None, None),
-        ("Not matched in bank, total", sum((t.amount for t in result.unmatched_bank), Decimal("0.00")), MONEY_FORMAT),
-        ("Not matched invoices, total", sum((t.amount for t in result.unmatched_invoices), Decimal("0.00")), MONEY_FORMAT),
-        ("Lines that could not be read", len(result.bad_lines), None),
+    row = write_reconciliation_lines(sheet, recon, start_row=3)
+
+    counts = [
+        ("Matched", len(result.matched)),
+        ("Needs review", len(result.review)),
+        ("Bank only (not in the books)", len(result.bank_only)),
+        ("Books only (not in the bank)", len(result.books_only)),
+        ("Lines that could not be read", len(result.bad_lines)),
     ]
-    for offset, (label, value, number_format) in enumerate(rows, start=3):
-        sheet.cell(row=offset, column=1, value=label)
-        cell = sheet.cell(row=offset, column=2, value=value)
-        if number_format:
-            cell.number_format = number_format
-        if label and label.startswith("Difference"):
-            sheet.cell(row=offset, column=1).font = Font(bold=True)
-            cell.font = Font(bold=True)
+    for label, value in counts:
+        sheet.cell(row=row, column=1, value=label)
+        sheet.cell(row=row, column=2, value=value)
+        row += 1
 
     # Si hubo líneas que no se pudieron leer, se listan abajo con su motivo
     if result.bad_lines:
-        start = len(rows) + 5
-        sheet.cell(row=start, column=1, value="Lines that could not be read").font = Font(bold=True)
-        for offset, bad in enumerate(result.bad_lines, start=start + 1):
-            file_name = "Bank" if bad.source == "bank" else "Invoices"
-            sheet.cell(row=offset, column=1, value=f"{file_name} file, line {bad.line}")
-            sheet.cell(row=offset, column=2, value=bad.reason)
-            sheet.cell(row=offset, column=3, value=bad.raw)
+        row += 1
+        sheet.cell(row=row, column=1, value="Lines that could not be read").font = Font(bold=True)
+        for bad in result.bad_lines:
+            row += 1
+            file_name = "Bank" if bad.source == "bank" else "Books"
+            sheet.cell(row=row, column=1, value=f"{file_name} file, line {bad.line}")
+            sheet.cell(row=row, column=2, value=bad.reason)
+            sheet.cell(row=row, column=3, value=bad.raw)
     autosize(sheet)
+    sheet.column_dimensions["A"].width = 40
 
 
-def build_workbook(result):
+def build_workbook(result, recon):
     workbook = Workbook()
-    write_summary(workbook.active, result)
+    write_summary(workbook.active, result, recon)
     workbook.active.title = "Summary"
 
     write_table(workbook.create_sheet("Matched"), MATCH_HEADERS,
@@ -128,13 +148,13 @@ def build_workbook(result):
                 [row for match in result.review for row in match_rows(match)])
     write_table(workbook.create_sheet("Unmatched bank"),
                 ["Bank line", "Date", "Description", "Amount"],
-                [[t.line, t.date, t.description, t.amount] for t in result.unmatched_bank])
-    write_table(workbook.create_sheet("Unmatched invoices"),
-                ["Invoice line", "Date", "Customer / vendor", "Invoice #", "Amount"],
-                [[t.line, t.date, t.description, t.reference, t.amount] for t in result.unmatched_invoices])
+                [[t.line, t.date, t.description, t.amount] for t in result.bank_only])
+    write_table(workbook.create_sheet("Unmatched books"),
+                ["Book line", "Date", "Name", "Ref", "Amount"],
+                [[t.line, t.date, t.description, t.reference, t.amount] for t in result.books_only])
     return workbook
 
 
-def save_report(result, destination):
+def save_report(result, recon, destination):
     """Guarda el Excel. `destination` puede ser una ruta o un archivo en memoria (BytesIO)."""
-    build_workbook(result).save(destination)
+    build_workbook(result, recon).save(destination)

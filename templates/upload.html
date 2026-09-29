@@ -11,9 +11,14 @@
   <input id="bank" name="bank" type="file" accept=".csv,text/csv" required>
   <p class="muted">Columns: Date, Description, and Amount (or Debit and Credit).</p>
 
-  <label for="invoices">Invoices and expected payments (CSV)</label>
-  <input id="invoices" name="invoices" type="file" accept=".csv,text/csv" required>
-  <p class="muted">Columns: Date, Name, Num, Amount (positive = money in, negative = money out).</p>
+  <label for="books">Books: the account register (CSV)</label>
+  <input id="books" name="books" type="file" accept=".csv,text/csv" required>
+  <p class="muted">Columns: Date, Name, Num, Amount (positive = money in, negative = money out). An invoice list also works.</p>
+
+  <label for="bank_balance">Bank ending balance (optional)</label>
+  <input id="bank_balance" name="bank_balance" type="text" inputmode="decimal" placeholder="e.g. 93,505.90">
+  <label for="book_balance">Book ending balance (optional)</label>
+  <input id="book_balance" name="book_balance" type="text" inputmode="decimal" placeholder="e.g. 101,962.94">
 
   <button type="submit">Reconcile</button>
 </form>

@@ -2,8 +2,9 @@
 
 ## Qué es
 Conciliación bancaria automática para negocios pequeños. El usuario sube dos CSV:
-los movimientos del banco y su lista de facturas/pagos esperados (exportada de
-QuickBooks o Excel). El programa los empareja solo y muestra ÚNICAMENTE lo que no
+los movimientos del banco y el registro de la cuenta en sus libros (exportado de
+QuickBooks; también sirve una lista de facturas). Los empareja solo, arma la
+conciliación en formato estándar y muestra ÚNICAMENTE lo que no
 cuadra o hay que revisar.
 
 Es un proyecto aparte de `~/hoja-ruta`. No tocar nada de ese proyecto.
@@ -44,5 +45,6 @@ Es un proyecto aparte de `~/hoja-ruta`. No tocar nada de ese proyecto.
 - Activar entorno: `source venv/bin/activate`
 - Pruebas: `pytest`
 - Datos de ejemplo: `python tools/make_sample_data.py`
-- Terminal: `python reconcile.py sample_data/bank.csv sample_data/invoices.csv`
+- Terminal: `python reconcile.py sample_data/bank.csv sample_data/books.csv`
+- Ejemplo con error: `python reconcile.py sample_data_error/bank.csv sample_data_error/books.csv`
 - Web: `python app.py` → http://127.0.0.1:5000

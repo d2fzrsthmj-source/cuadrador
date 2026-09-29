@@ -8,14 +8,14 @@
 {% macro match_table(matches) %}
 <div class="table-wrap">
 <table>
-  <tr><th>Status</th><th>Bank</th><th class="amount">Bank amount</th><th>Invoice</th><th class="amount">Invoice amount</th><th>Why</th></tr>
+  <tr><th>Status</th><th>Bank</th><th class="amount">Bank amount</th><th>Books</th><th class="amount">Book amount</th><th>Why</th></tr>
   {% for m in matches %}
   <tr>
     <td><span class="badge {{ m.status }}">{{ m.status }}</span></td>
     <td>{% for b in m.bank %}<div>Line {{ b.line }} · {{ b.date.strftime('%m/%d/%Y') }}<br><span class="muted">{{ b.description }}</span></div>{% else %}<span class="muted">—</span>{% endfor %}</td>
     <td class="amount">{% for b in m.bank %}<div class="{{ 'negative' if b.amount < 0 }}">{{ b.amount | money }}</div>{% endfor %}</td>
-    <td>{% for i in m.invoices %}<div>{{ i.reference }} · {{ i.date.strftime('%m/%d/%Y') }}<br><span class="muted">{{ i.description }}</span></div>{% else %}<span class="muted">—</span>{% endfor %}</td>
-    <td class="amount">{% for i in m.invoices %}<div class="{{ 'negative' if i.amount < 0 }}">{{ i.amount | money }}</div>{% endfor %}</td>
+    <td>{% for e in m.books %}<div>{{ e.reference }} · {{ e.date.strftime('%m/%d/%Y') }}<br><span class="muted">{{ e.description }}</span></div>{% else %}<span class="muted">—</span>{% endfor %}</td>
+    <td class="amount">{% for e in m.books %}<div class="{{ 'negative' if e.amount < 0 }}">{{ e.amount | money }}</div>{% endfor %}</td>
     <td>{{ m.reason }}</td>
   </tr>
   {% endfor %}
@@ -25,13 +25,26 @@
 
 {% block content %}
 <h1>Reconciliation results</h1>
-<p class="muted">{{ bank_name }} · {{ invoice_name }}</p>
+<p class="muted">{{ bank_name }} · {{ books_name }}</p>
+
+<div class="card">
+<table>
+  {% for label, amount, kind in recon.lines() %}
+  <tr{% if kind in ("total", "difference") %} style="font-weight:700"{% endif %}>
+    <td>{{ label }}</td>
+    <td class="amount">{{ amount | money if amount is not none else "not given" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% if not recon.is_complete %}<p class="muted">Enter both ending balances to get the difference.</p>
+{% elif recon.is_balanced %}<p><strong>Reconciled.</strong></p>
+{% else %}<p><strong>Not reconciled.</strong></p><ul>{% for hint in recon.hints() %}<li>{{ hint }}</li>{% endfor %}</ul>{% endif %}
+</div>
 
 <div class="stats">
   <div class="stat ok"><div class="number">{{ result.matched | length }}</div>Matched</div>
   <div class="stat warn"><div class="number">{{ result.review | length }}</div>Needs review</div>
   <div class="stat bad"><div class="number">{{ result.unmatched_count }}</div>Not matched</div>
-  <div class="stat"><div class="number">{{ result.difference | money }}</div>Difference (bank − invoices)</div>
 </div>
 
 <a class="button" href="{{ url_for('download', token=token) }}">Download Excel</a>
@@ -43,38 +56,38 @@
 <table>
   <tr><th>File</th><th>Line</th><th>Problem</th><th>Content</th></tr>
   {% for bad in result.bad_lines %}
-  <tr><td>{{ "Bank" if bad.source == "bank" else "Invoices" }}</td><td>{{ bad.line }}</td><td>{{ bad.reason }}</td><td class="muted">{{ bad.raw }}</td></tr>
+  <tr><td>{{ "Bank" if bad.source == "bank" else "Books" }}</td><td>{{ bad.line }}</td><td>{{ bad.reason }}</td><td class="muted">{{ bad.raw }}</td></tr>
   {% endfor %}
 </table>
 </div>
 {% endif %}
 
-<h2>In the bank, no invoice ({{ result.unmatched_bank | length }})</h2>
-{% if result.unmatched_bank %}
+<h2>Needs review ({{ result.review | length }})</h2>
+{% if result.review %}{{ match_table(result.review) }}{% else %}<p class="muted">Nothing here.</p>{% endif %}
+
+<h2>In the bank, not in the books ({{ result.bank_only | length }})</h2>
+{% if result.bank_only %}
 <div class="table-wrap">
 <table>
   <tr><th>Line</th><th>Date</th><th>Description</th><th class="amount">Amount</th></tr>
-  {% for t in result.unmatched_bank %}
+  {% for t in result.bank_only %}
   <tr><td>{{ t.line }}</td><td>{{ t.date.strftime('%m/%d/%Y') }}</td><td>{{ t.description }}</td>{{ amount_cell(t.amount) }}</tr>
   {% endfor %}
 </table>
 </div>
 {% else %}<p class="muted">Nothing here.</p>{% endif %}
 
-<h2>Invoices not found in the bank ({{ result.unmatched_invoices | length }})</h2>
-{% if result.unmatched_invoices %}
+<h2>In the books, not in the bank ({{ result.books_only | length }})</h2>
+{% if result.books_only %}
 <div class="table-wrap">
 <table>
-  <tr><th>Invoice #</th><th>Date</th><th>Customer / vendor</th><th class="amount">Amount</th></tr>
-  {% for t in result.unmatched_invoices %}
+  <tr><th>Ref</th><th>Date</th><th>Name</th><th class="amount">Amount</th></tr>
+  {% for t in result.books_only %}
   <tr><td>{{ t.reference }}</td><td>{{ t.date.strftime('%m/%d/%Y') }}</td><td>{{ t.description }}</td>{{ amount_cell(t.amount) }}</tr>
   {% endfor %}
 </table>
 </div>
 {% else %}<p class="muted">Nothing here.</p>{% endif %}
-
-<h2>Needs review ({{ result.review | length }})</h2>
-{% if result.review %}{{ match_table(result.review) }}{% else %}<p class="muted">Nothing here.</p>{% endif %}
 
 <details>
   <summary>Matched ({{ result.matched | length }})</summary>

@@ -17,10 +17,11 @@ def client():
     return app.test_client()
 
 
-def upload(client, bank_bytes, invoice_bytes):
+def upload(client, bank_bytes, books_bytes, **balances):
     return client.post("/reconcile", content_type="multipart/form-data", data={
         "bank": (io.BytesIO(bank_bytes), "bank.csv"),
-        "invoices": (io.BytesIO(invoice_bytes), "invoices.csv"),
+        "books": (io.BytesIO(books_bytes), "books.csv"),
+        **balances,
     })
 
 
@@ -30,13 +31,14 @@ def test_upload_page(client):
 
 
 def test_results_page_and_excel_download(client):
-    response = upload(client, (SAMPLES / "bank.csv").read_bytes(), (SAMPLES / "invoices.csv").read_bytes())
+    response = upload(client, (SAMPLES / "bank.csv").read_bytes(), (SAMPLES / "books.csv").read_bytes(),
+                      bank_balance="93,505.90", book_balance="101,962.94")
     assert response.status_code == 200
     page = response.get_data(as_text=True)
     assert "Needs review" in page and "Not matched" in page
-    assert "-$31,341.62" in page
+    assert "Adjusted bank balance" in page and "Reconciled" in page
     # Lo que no cuadra aparece antes que lo que cuadró, y lo que cuadró va plegado
-    assert page.index("In the bank, no invoice") < page.index("<details>")
+    assert page.index("In the bank, not in the books") < page.index("<details>")
 
     link = re.search(r'href="(/download/[^"]+)"', page).group(1)
     excel = client.get(link)
@@ -52,7 +54,7 @@ def test_missing_file_shows_error(client):
 
 
 def test_wrong_columns_show_error(client):
-    response = upload(client, b"Foo,Bar\n1,2\n", (SAMPLES / "invoices.csv").read_bytes())
+    response = upload(client, b"Foo,Bar\n1,2\n", (SAMPLES / "books.csv").read_bytes())
     assert response.status_code == 400
     assert "date column" in response.get_data(as_text=True)
 
@@ -66,3 +68,8 @@ def test_broken_lines_are_listed(client):
 
 def test_unknown_download_is_404(client):
     assert client.get("/download/nothing").status_code == 404
+
+
+def test_without_balances_asks_for_them(client):
+    response = upload(client, (SAMPLES / "bank.csv").read_bytes(), (SAMPLES / "books.csv").read_bytes())
+    assert "Enter both ending balances" in response.get_data(as_text=True)

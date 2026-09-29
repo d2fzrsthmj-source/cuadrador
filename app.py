@@ -15,6 +15,7 @@ from flask import Flask, abort, render_template, request, send_file
 
 from excel_report import save_report
 from matcher import money
+from reader import parse_amount
 from reconcile import reconcile_files
 
 app = Flask(__name__)
@@ -35,25 +36,28 @@ def upload_form():
 @app.post("/reconcile")
 def reconcile_upload():
     bank_file = request.files.get("bank")
-    invoice_file = request.files.get("invoices")
-    if not bank_file or not bank_file.filename or not invoice_file or not invoice_file.filename:
+    books_file = request.files.get("books")
+    if not bank_file or not bank_file.filename or not books_file or not books_file.filename:
         return render_template("upload.html", error="Please choose both CSV files."), 400
 
     try:
+        # Saldos finales: opcionales
+        bank_balance = parse_amount(request.form.get("bank_balance", ""))
+        book_balance = parse_amount(request.form.get("book_balance", ""))
         # .stream se lee directo en memoria; no se guarda en ninguna carpeta
-        result = reconcile_files(bank_file.stream, invoice_file.stream)
+        result, recon = reconcile_files(bank_file.stream, books_file.stream, bank_balance, book_balance)
     except ValueError as error:
         return render_template("upload.html", error=str(error)), 400
 
     excel = io.BytesIO()
-    save_report(result, excel)
+    save_report(result, recon, excel)
     token = secrets.token_urlsafe(16)
     REPORTS[token] = excel.getvalue()
     while len(REPORTS) > MAX_REPORTS:
         REPORTS.popitem(last=False)   # se borra el más viejo
 
-    return render_template("results.html", result=result, token=token,
-                           bank_name=bank_file.filename, invoice_name=invoice_file.filename)
+    return render_template("results.html", result=result, recon=recon, token=token,
+                           bank_name=bank_file.filename, books_name=books_file.filename)
 
 
 @app.get("/download/<token>")

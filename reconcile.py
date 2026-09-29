@@ -1,9 +1,14 @@
 """Uso desde la terminal.
 
-    python reconcile.py bank.csv invoices.csv
-    python reconcile.py bank.csv invoices.csv --output mi_reporte.xlsx
+    python reconcile.py sample_data/bank.csv sample_data/books.csv
+    python reconcile.py bank.csv books.csv --bank-balance 52,310.18 --book-balance 49,870.44
+    python reconcile.py bank.csv books.csv --output mi_reporte.xlsx
 
-Imprime un resumen y lo que hay que revisar, y guarda un Excel
+El segundo archivo es el registro de la cuenta en los libros (o una lista de facturas).
+Los saldos finales son opcionales. Si no se dan y junto al archivo del banco hay un
+balances.json (como en los datos de ejemplo), se usan esos.
+
+Imprime la conciliación y lo que hay que revisar, y guarda un Excel
 (por defecto en output/reconciliation.xlsx).
 """
 
@@ -13,43 +18,57 @@ from pathlib import Path
 
 from excel_report import save_report
 from matcher import money, reconcile
-from reader import read_transactions
+from reader import parse_amount, read_transactions
+from reconciliation import build_reconciliation, load_balances
 
 DEFAULT_OUTPUT = Path("output") / "reconciliation.xlsx"
 
 
-def reconcile_files(bank_file, invoice_file):
-    """Lee los dos archivos y los empareja. Acepta rutas o archivos abiertos."""
+def reconcile_files(bank_file, books_file, bank_balance=None, book_balance=None):
+    """Lee los dos archivos, los empareja y arma la conciliación. Devuelve (result, recon)."""
     bank, bad_bank = read_transactions(bank_file, "bank")
-    invoices, bad_invoices = read_transactions(invoice_file, "invoice")
-    result = reconcile(bank, invoices)
-    result.bad_lines = bad_bank + bad_invoices
-    return result
+    books, bad_books = read_transactions(books_file, "books")
+    result = reconcile(bank, books)
+    result.bad_lines = bad_bank + bad_books
+    return result, build_reconciliation(result, bank_balance, book_balance)
 
 
-def print_summary(result):
+def print_reconciliation(recon):
     print("Bank reconciliation")
-    print("-" * 50)
-    print(f"  Matched:        {len(result.matched):>4}")
-    print(f"  Needs review:   {len(result.review):>4}")
-    print(f"  Not matched:    {result.unmatched_count:>4}   "
-          f"({len(result.unmatched_bank)} bank lines, {len(result.unmatched_invoices)} invoices)")
-    print(f"  Difference:     {money(result.difference)}   (bank total - invoices total)")
-    if result.bad_lines:
-        print(f"  Could not read: {len(result.bad_lines):>4} lines")
+    print("-" * 56)
+    for label, amount, kind in recon.lines():
+        if label in ("Book ending balance", "Difference"):
+            print()
+        shown = money(amount) if amount is not None else "(not given)"
+        print(f"  {label:<34}{shown:>18}")
+    if not recon.is_complete:
+        print("\n  Give both ending balances to get the difference "
+              "(--bank-balance and --book-balance).")
+    elif recon.is_balanced:
+        print("\n  RECONCILED: the difference is $0.00.")
+    else:
+        print("\n  NOT RECONCILED: the difference is not $0.00.")
+        for hint in recon.hints():
+            print(f"  - {hint}")
+
+
+def print_details(result, recon):
+    print(f"\nMatched: {len(result.matched)}   Needs review: {len(result.review)}   "
+          f"Not matched: {result.unmatched_count} "
+          f"({len(result.bank_only)} bank only, {len(result.books_only)} books only)")
 
     if result.review:
         print("\nNEEDS REVIEW")
         for match in result.review:
-            lines = ", ".join(f"bank line {t.line}" for t in match.bank)
+            lines = ", ".join(f"bank line {t.line}" for t in match.bank) or "no bank line"
             print(f"  [{match.status}] {lines}: {match.reason}")
-    if result.unmatched_bank:
-        print("\nIN THE BANK, NO INVOICE")
-        for t in result.unmatched_bank:
+    if result.bank_only:
+        print("\nIN THE BANK, NOT IN THE BOOKS")
+        for t in result.bank_only:
             print(f"  line {t.line:>3}  {t.date:%m/%d/%Y}  {money(t.amount):>12}  {t.description}")
-    if result.unmatched_invoices:
-        print("\nINVOICES NOT FOUND IN THE BANK")
-        for t in result.unmatched_invoices:
+    if result.books_only:
+        print("\nIN THE BOOKS, NOT IN THE BANK")
+        for t in result.books_only:
             print(f"  {t.reference:>10}  {t.date:%m/%d/%Y}  {money(t.amount):>12}  {t.description}")
     if result.bad_lines:
         print("\nLINES THAT COULD NOT BE READ")
@@ -58,22 +77,31 @@ def print_summary(result):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Match bank lines with invoices.")
-    parser.add_argument("bank", help="bank CSV file")
-    parser.add_argument("invoices", help="invoices / expected payments CSV file")
+    parser = argparse.ArgumentParser(description="Reconcile a bank statement against the books.")
+    parser.add_argument("bank", help="bank statement CSV file")
+    parser.add_argument("books", help="books (account register) or invoice list CSV file")
+    parser.add_argument("--bank-balance", help="ending balance on the bank statement")
+    parser.add_argument("--book-balance", help="ending balance in the books")
     parser.add_argument("-o", "--output", default=str(DEFAULT_OUTPUT), help="Excel file to create")
     args = parser.parse_args(argv)
 
     try:
-        result = reconcile_files(args.bank, args.invoices)
+        bank_balance = parse_amount(args.bank_balance) if args.bank_balance else None
+        book_balance = parse_amount(args.book_balance) if args.book_balance else None
+        if bank_balance is None and book_balance is None:
+            bank_balance, book_balance = load_balances(Path(args.bank).parent)
+            if bank_balance is not None:
+                print(f"(Ending balances taken from {Path(args.bank).parent / 'balances.json'})\n")
+        result, recon = reconcile_files(args.bank, args.books, bank_balance, book_balance)
     except (OSError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
 
-    print_summary(result)
+    print_reconciliation(recon)
+    print_details(result, recon)
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    save_report(result, output)
+    save_report(result, recon, output)
     print(f"\nExcel saved to {output}")
     return 0
 
