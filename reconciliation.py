@@ -97,6 +97,20 @@ class Reconciliation:
     def is_pending(self, t):
         return (t.source, t.line) in self.pending_review
 
+    def explain(self, t):
+        """Por qué esta línea sin pareja está en la conciliación, en palabras simples."""
+        if self.is_pending(t):
+            return "Pending review (see Needs review)"
+        if t.source == "books":
+            if t.amount > 0:
+                return "Deposit in transit: recorded in the books, not yet in the bank"
+            return "Outstanding check or payment: recorded, not yet cleared by the bank"
+        if is_fee(t):
+            return "Bank fee not recorded in the books yet"
+        if is_interest(t):
+            return "Interest not recorded in the books yet"
+        return "In the bank but not in the books: record it or investigate"
+
     # --- el formato estándar, como lista de renglones ---
 
     def lines(self):

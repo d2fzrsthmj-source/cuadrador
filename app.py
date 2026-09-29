@@ -1,6 +1,8 @@
 """Pantalla web (Flask). Solo corre en esta computadora.
 
-    python app.py      ->  abrir http://127.0.0.1:5000
+    python app.py      ->  abrir http://127.0.0.1:5001
+
+(El puerto 5000 lo usa otra app de esta computadora.)
 
 Los archivos subidos se leen en memoria y NUNCA se guardan en disco.
 Mientras la persona elige columnas (si el formato no se reconoce), el archivo
@@ -11,6 +13,7 @@ La interfaz está en inglés porque los clientes son negocios de EE. UU.
 import io
 import secrets
 from collections import OrderedDict
+from pathlib import Path
 
 from flask import Flask, abort, render_template, request, send_file
 
@@ -19,9 +22,11 @@ from formats import FIELDS, load_formats, save_format, validate_columns
 from matcher import money
 from reader import UnknownColumns, find_header, parse_amount, read_rows
 from reconcile import reconcile_files
+from reconciliation import load_balances
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024   # máximo 5 MB por envío
+MAX_UPLOAD_MB = 5
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024   # tope por envío (los dos archivos juntos)
 app.jinja_env.filters["money"] = money
 
 # Cosas en memoria, cada una con un código al azar:
@@ -31,6 +36,10 @@ app.jinja_env.filters["money"] = money
 REPORTS = OrderedDict()
 PENDING = OrderedDict()
 MAX_KEPT = 20
+
+# Datos de ejemplo (inventados) para los botones de demostración
+ROOT = Path(__file__).resolve().parent
+SAMPLES = {"clean": ROOT / "sample_data", "error": ROOT / "sample_data_error"}
 
 FILE_LABELS = {"bank": "Bank statement", "books": "Books"}
 FIELD_LABELS = {
@@ -55,20 +64,56 @@ def upload_form():
 
 @app.post("/reconcile")
 def reconcile_upload():
-    bank_file = request.files.get("bank")
-    books_file = request.files.get("books")
-    if not bank_file or not bank_file.filename or not books_file or not books_file.filename:
-        return render_template("upload.html", error="Please choose both CSV files."), 400
     try:
+        bank_name, bank_bytes = read_upload("bank", "bank statement")
+        books_name, books_bytes = read_upload("books", "books")
         upload = {
-            "bank": bank_file.read(), "books": books_file.read(),   # en memoria, nunca a disco
-            "bank_name": bank_file.filename, "books_name": books_file.filename,
+            "bank": bank_bytes, "books": books_bytes,   # en memoria, nunca a disco
+            "bank_name": bank_name, "books_name": books_name,
             # Saldos finales: opcionales
-            "bank_balance": parse_amount(request.form.get("bank_balance", "")),
-            "book_balance": parse_amount(request.form.get("book_balance", "")),
+            "bank_balance": read_balance("bank_balance", "bank ending balance"),
+            "book_balance": read_balance("book_balance", "book ending balance"),
         }
     except ValueError as error:
-        return render_template("upload.html", error=f"Ending balance: {error}"), 400
+        return render_template("upload.html", error=str(error)), 400
+    return process(upload)
+
+
+def read_upload(field, label):
+    """Revisa un archivo subido y devuelve (nombre, contenido en bytes). Lanza ValueError con un mensaje claro."""
+    file = request.files.get(field)
+    if not file or not file.filename:
+        raise ValueError(f"Please choose the {label} file.")
+    if Path(file.filename).suffix.lower() != ".csv":
+        raise ValueError(f"The {label} file must be a .csv file (you chose '{file.filename}'). "
+                         f"Save or export it as CSV first.")
+    content = file.read()
+    if not content.strip():
+        raise ValueError(f"The {label} file is empty.")
+    return file.filename, content
+
+
+def read_balance(field, label):
+    """Un saldo opcional escrito por la persona ('$93,505.90', '-120', vacío)."""
+    text = request.form.get(field, "")
+    try:
+        return parse_amount(text)
+    except ValueError:
+        raise ValueError(f"The {label} '{text.strip()}' is not a number. Use something like 12,345.67.")
+
+
+@app.route("/sample/<name>", methods=["GET", "POST"])
+def sample(name):
+    """Los botones de demostración: usan los datos inventados de sample_data/, sin subir nada."""
+    folder = SAMPLES.get(name)
+    if folder is None:
+        abort(404)
+    bank_balance, book_balance = load_balances(folder)
+    upload = {
+        "bank": (folder / "bank.csv").read_bytes(), "books": (folder / "books.csv").read_bytes(),
+        "bank_name": f"{folder.name}/bank.csv", "books_name": f"{folder.name}/books.csv",
+        "bank_balance": bank_balance, "book_balance": book_balance,
+    }
     return process(upload)
 
 
@@ -147,9 +192,9 @@ def download(token):
 
 @app.errorhandler(413)
 def too_large(_error):
-    return render_template("upload.html", error="Files are too large (limit is 5 MB)."), 413
+    return render_template("upload.html", error=f"The files are too large (limit is {MAX_UPLOAD_MB} MB in total)."), 413
 
 
 if __name__ == "__main__":
     # 127.0.0.1 = solo esta computadora puede abrirlo. Nunca usar host="0.0.0.0".
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    app.run(host="127.0.0.1", port=5001, debug=False)

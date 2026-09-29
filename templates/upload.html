@@ -1,27 +1,58 @@
 {% extends "base.html" %}
 {% block title %}Cuadrador – Bank reconciliation{% endblock %}
+{% block head %}
+<style>
+  .layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 20px; }
+  .balances { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .demo p { font-size: .9rem; }
+  .demo form { margin: 0 0 10px; }
+  .demo button { width: 100%; }
+  @media (max-width: 820px) { .layout, .balances { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
 {% block content %}
-<h1>Bank reconciliation</h1>
-<p class="muted">Upload your bank statement and your invoice list. We match them automatically and show you only what doesn't add up.</p>
+<h1>Reconcile your bank account</h1>
+<p class="muted">Upload the bank statement and the account register from your books. Cuadrador matches them line by line,
+  builds the standard reconciliation, and shows you only what needs a person.</p>
 
-{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if error %}<div class="alert error" role="alert"><strong>Couldn't reconcile:</strong> {{ error }}</div>{% endif %}
 
-<form class="card" action="{{ url_for('reconcile_upload') }}" method="post" enctype="multipart/form-data">
-  <label for="bank">Bank transactions (CSV)</label>
-  <input id="bank" name="bank" type="file" accept=".csv,text/csv" required>
-  <p class="muted">Columns: Date, Description, and Amount (or Debit and Credit).</p>
+<div class="layout">
+  <form class="card" action="{{ url_for('reconcile_upload') }}" method="post" enctype="multipart/form-data">
+    <label for="bank">1. Bank statement (.csv)</label>
+    <input id="bank" name="bank" type="file" accept=".csv" required>
+    <p class="hint">Date, description and amount (or separate debit and credit columns).</p>
 
-  <label for="books">Books: the account register (CSV)</label>
-  <input id="books" name="books" type="file" accept=".csv,text/csv" required>
-  <p class="muted">Columns: Date, Name, Num, Amount (positive = money in, negative = money out). An invoice list also works.</p>
+    <label for="books">2. Books: account register (.csv)</label>
+    <input id="books" name="books" type="file" accept=".csv" required>
+    <p class="hint">Date, name, number and amount. Positive = money in, negative = money out. An invoice list also works.</p>
 
-  <label for="bank_balance">Bank ending balance (optional)</label>
-  <input id="bank_balance" name="bank_balance" type="text" inputmode="decimal" placeholder="e.g. 93,505.90">
-  <label for="book_balance">Book ending balance (optional)</label>
-  <input id="book_balance" name="book_balance" type="text" inputmode="decimal" placeholder="e.g. 101,962.94">
+    <div class="balances">
+      <div>
+        <label for="bank_balance">Bank ending balance <span class="muted">(optional)</span></label>
+        <input id="bank_balance" name="bank_balance" type="text" inputmode="decimal" placeholder="$0.00">
+      </div>
+      <div>
+        <label for="book_balance">Book ending balance <span class="muted">(optional)</span></label>
+        <input id="book_balance" name="book_balance" type="text" inputmode="decimal" placeholder="$0.00">
+      </div>
+    </div>
+    <p class="hint">Both balances are needed to calculate the difference.</p>
 
-  <button type="submit">Reconcile</button>
-</form>
+    <p style="margin-top: 20px;"><button type="submit">Reconcile</button></p>
+    <p class="hint">Only .csv files, up to 5 MB in total.</p>
+  </form>
 
-<p class="muted">Your files are processed in memory and are never stored.</p>
+  <aside class="card demo">
+    <h3 style="margin-top: 0;">No files at hand?</h3>
+    <p class="muted">Try it with a made-up company, Maple Street Contracting. Nothing is uploaded.</p>
+    <form action="{{ url_for('sample', name='clean') }}" method="post">
+      <button class="secondary" type="submit">Try with sample data</button>
+    </form>
+    <form action="{{ url_for('sample', name='error') }}" method="post">
+      <button class="secondary" type="submit">Try the example with an error</button>
+    </form>
+    <p class="hint">The second example hides a typical mistake: $540.00 recorded as $450.00.</p>
+  </aside>
+</div>
 {% endblock %}

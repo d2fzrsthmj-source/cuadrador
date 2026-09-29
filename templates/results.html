@@ -1,21 +1,66 @@
 {% extends "base.html" %}
-{% block title %}Cuadrador – Results{% endblock %}
+{% block title %}Cuadrador – Reconciliation{% endblock %}
+{% block head %}
+<style>
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; }
+  .status { border: 1px solid; border-radius: 8px; padding: 18px 22px; margin: 20px 0; display: flex;
+            flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+  .status .word { font-size: 1.35rem; font-weight: 800; }
+  .status .amount { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .status.good { background: var(--good-bg); border-color: var(--good-line); color: var(--good); }
+  .status.bad { background: var(--bad-bg); border-color: var(--bad-line); color: var(--bad); }
+  .status.none { background: var(--surface); border-color: var(--line); color: var(--ink); }
+  .status ul { flex-basis: 100%; margin: 6px 0 0; padding-left: 20px; color: var(--ink); }
+  .status li { margin: 4px 0; }
 
-{% macro amount_cell(value) -%}
-  <td class="amount{% if value is not none and value < 0 %} negative{% endif %}">{{ value | money if value is not none else "" }}</td>
+  .statement { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
+  .statement table { align-self: start; }
+  .statement table td { border: 0; padding: 5px 0; font-size: .98rem; }
+  .statement .total td { border-top: 1px solid var(--ink); font-weight: 700; padding-top: 8px; }
+  .statement .balance td { font-weight: 600; }
+  .statement .op { color: var(--muted); display: inline-block; width: 1.3em; }
+  .difference { display: flex; justify-content: space-between; margin-top: 18px; padding-top: 12px;
+                border-top: 3px double var(--ink); font-size: 1.1rem; font-weight: 800; }
+  .difference.good .num { color: var(--good); }
+  .difference.bad .num { color: var(--bad); }
+
+  .counts { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0 0; }
+  .count { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; min-width: 150px; }
+  .count strong { display: block; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+  .count.warn strong { color: var(--warn); }
+  .count.bad strong { color: var(--bad); }
+  .count.good strong { color: var(--good); }
+  .items td:first-child { width: 110px; }
+  @media (max-width: 820px) { .statement { grid-template-columns: 1fr; } }
+  @media print { .status { border-width: 2px; } .count { border-color: #999; } }
+</style>
+{% endblock %}
+
+{# ---------- piezas reutilizables ---------- #}
+
+{% macro money_cell(value) -%}
+  <td class="num">{{ value | money if value is not none else "—" }}</td>
 {%- endmacro %}
+
+{% macro statement_row(label, amount, kind) %}
+  {% set op = label[:1] if label[:1] in "+−=±" else "" %}
+  <tr class="{{ kind }}">
+    <td><span class="op">{{ op }}</span>{{ label[2:] if op else label }}</td>
+    <td class="num">{{ amount | money if amount is not none else "not given" }}</td>
+  </tr>
+{% endmacro %}
 
 {% macro match_table(matches) %}
 <div class="table-wrap">
 <table>
-  <tr><th>Status</th><th>Bank</th><th class="amount">Bank amount</th><th>Books</th><th class="amount">Book amount</th><th>Why</th></tr>
+  <tr><th>Status</th><th>Bank</th><th class="num">Bank amount</th><th>Books</th><th class="num">Book amount</th><th>Why</th></tr>
   {% for m in matches %}
   <tr>
     <td><span class="badge {{ m.status }}">{{ m.status }}</span></td>
-    <td>{% for b in m.bank %}<div>Line {{ b.line }} · {{ b.date.strftime('%m/%d/%Y') }}<br><span class="muted">{{ b.description }}</span></div>{% else %}<span class="muted">—</span>{% endfor %}</td>
-    <td class="amount">{% for b in m.bank %}<div class="{{ 'negative' if b.amount < 0 }}">{{ b.amount | money }}</div>{% endfor %}</td>
-    <td>{% for e in m.books %}<div>{{ e.reference }} · {{ e.date.strftime('%m/%d/%Y') }}<br><span class="muted">{{ e.description }}</span></div>{% else %}<span class="muted">—</span>{% endfor %}</td>
-    <td class="amount">{% for e in m.books %}<div class="{{ 'negative' if e.amount < 0 }}">{{ e.amount | money }}</div>{% endfor %}</td>
+    <td>{% for b in m.bank %}<div class="nowrap">Line {{ b.line }} · {{ b.date.strftime('%m/%d/%Y') }}</div><div class="sub">{{ b.description }}</div>{% else %}<span class="sub">—</span>{% endfor %}</td>
+    <td class="num">{% for b in m.bank %}<div>{{ b.amount | money }}</div><div class="sub">&nbsp;</div>{% endfor %}</td>
+    <td>{% for e in m.books %}<div class="nowrap">{{ e.reference or "—" }} · {{ e.date.strftime('%m/%d/%Y') }}</div><div class="sub">{{ e.description }}</div>{% else %}<span class="sub">—</span>{% endfor %}</td>
+    <td class="num">{% for e in m.books %}<div>{{ e.amount | money }}</div><div class="sub">&nbsp;</div>{% endfor %}</td>
     <td>{{ m.reason }}</td>
   </tr>
   {% endfor %}
@@ -23,71 +68,120 @@
 </div>
 {% endmacro %}
 
-{% block content %}
-<h1>Reconciliation results</h1>
-<p class="muted">{{ bank_name }} · {{ books_name }}</p>
-
-<div class="card">
+{% macro lines_table(lines, show_ref) %}
+<div class="table-wrap">
 <table>
-  {% for label, amount, kind in recon.lines() %}
-  <tr{% if kind in ("total", "difference") %} style="font-weight:700"{% endif %}>
-    <td>{{ label }}</td>
-    <td class="amount">{{ amount | money if amount is not none else "not given" }}</td>
+  <tr><th>{{ "Ref" if show_ref else "Line" }}</th><th>Date</th><th>{{ "Name" if show_ref else "Description" }}</th><th class="num">Amount</th><th>Why</th></tr>
+  {% for t in lines %}
+  <tr>
+    <td class="nowrap">{{ (t.reference or "—") if show_ref else t.line }}</td>
+    <td class="nowrap">{{ t.date.strftime('%m/%d/%Y') }}</td>
+    <td>{{ t.description }}</td>
+    {{ money_cell(t.amount) }}
+    <td>{{ recon.explain(t) }}</td>
   </tr>
   {% endfor %}
 </table>
-{% if not recon.is_complete %}<p class="muted">Enter both ending balances to get the difference.</p>
-{% elif recon.is_balanced %}<p><strong>Reconciled.</strong></p>
-{% else %}<p><strong>Not reconciled.</strong></p><ul>{% for hint in recon.hints() %}<li>{{ hint }}</li>{% endfor %}</ul>{% endif %}
+</div>
+{% endmacro %}
+
+{# ---------- la página ---------- #}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>Bank reconciliation</h1>
+    <p class="muted" style="margin:0">{{ bank_name }} &nbsp;·&nbsp; {{ books_name }}</p>
+  </div>
+  <div class="actions no-print">
+    <a class="button" href="{{ url_for('download', token=token) }}">Download Excel</a>
+    <button class="secondary" type="button" onclick="window.print()">Print</button>
+    <a class="button secondary" href="{{ url_for('upload_form') }}">New reconciliation</a>
+  </div>
 </div>
 
-<div class="stats">
-  <div class="stat ok"><div class="number">{{ result.matched | length }}</div>Matched</div>
-  <div class="stat warn"><div class="number">{{ result.review | length }}</div>Needs review</div>
-  <div class="stat bad"><div class="number">{{ result.unmatched_count }}</div>Not matched</div>
+{% if not recon.is_complete %}
+<div class="status none">
+  <span class="word">Ending balances needed</span>
+  <span class="muted">Enter the bank and book ending balances to calculate the difference.</span>
 </div>
+{% elif recon.is_balanced %}
+<div class="status good">
+  <span class="word">Reconciled</span>
+  <span>Difference <span class="amount">{{ recon.difference | money }}</span></span>
+</div>
+{% else %}
+<div class="status bad">
+  <span class="word">Not reconciled</span>
+  <span>Difference <span class="amount">{{ recon.difference | money }}</span></span>
+  {% if recon.hints() %}<ul>{% for hint in recon.hints() %}<li>{{ hint }}</li>{% endfor %}</ul>{% endif %}
+</div>
+{% endif %}
 
-<a class="button" href="{{ url_for('download', token=token) }}">Download Excel</a>
-<a href="{{ url_for('upload_form') }}" style="margin-left: 12px;">Start over</a>
+<section class="card">
+  <div class="statement">
+    <table>
+      {% for label, amount, kind in recon.lines()[0:4] %}{{ statement_row(label, amount, kind) }}{% endfor %}
+    </table>
+    <table>
+      {% for label, amount, kind in recon.lines()[4:9] %}{{ statement_row(label, amount, kind) }}{% endfor %}
+    </table>
+  </div>
+  <div class="difference {{ 'good' if recon.is_balanced else ('bad' if recon.is_complete else '') }}">
+    <span>Difference (adjusted bank − adjusted books)</span>
+    <span class="num">{{ recon.difference | money if recon.is_complete else "—" }}</span>
+  </div>
+</section>
+
+<div class="counts">
+  <div class="count good"><strong>{{ result.matched | length }}</strong>Matched</div>
+  <div class="count warn"><strong>{{ result.review | length }}</strong>Needs review</div>
+  <div class="count bad"><strong>{{ result.unmatched_count }}</strong>Not matched</div>
+  {% if result.bad_lines %}<div class="count bad"><strong>{{ result.bad_lines | length }}</strong>Lines not read</div>{% endif %}
+</div>
 
 {% if result.bad_lines %}
-<h2>Lines we couldn't read ({{ result.bad_lines | length }})</h2>
+<h2>Lines we couldn't read</h2>
 <div class="table-wrap">
 <table>
   <tr><th>File</th><th>Line</th><th>Problem</th><th>Content</th></tr>
   {% for bad in result.bad_lines %}
-  <tr><td>{{ "Bank" if bad.source == "bank" else "Books" }}</td><td>{{ bad.line }}</td><td>{{ bad.reason }}</td><td class="muted">{{ bad.raw }}</td></tr>
+  <tr><td>{{ "Bank" if bad.source == "bank" else "Books" }}</td><td>{{ bad.line }}</td><td>{{ bad.reason }}</td><td class="sub">{{ bad.raw }}</td></tr>
   {% endfor %}
 </table>
 </div>
 {% endif %}
 
 <h2>Needs review ({{ result.review | length }})</h2>
-{% if result.review %}{{ match_table(result.review) }}{% else %}<p class="muted">Nothing here.</p>{% endif %}
+<p class="muted small">Cuadrador suggests; a person decides. Items marked Review stay open in the reconciliation until they are resolved.</p>
+{% if result.review %}{{ match_table(result.review) }}{% else %}<p class="muted">Nothing to review.</p>{% endif %}
 
-<h2>In the bank, not in the books ({{ result.bank_only | length }})</h2>
-{% if result.bank_only %}
-<div class="table-wrap">
-<table>
-  <tr><th>Line</th><th>Date</th><th>Description</th><th class="amount">Amount</th></tr>
-  {% for t in result.bank_only %}
-  <tr><td>{{ t.line }}</td><td>{{ t.date.strftime('%m/%d/%Y') }}</td><td>{{ t.description }}</td>{{ amount_cell(t.amount) }}</tr>
-  {% endfor %}
-</table>
-</div>
-{% else %}<p class="muted">Nothing here.</p>{% endif %}
+<h2>Not matched ({{ result.unmatched_count }})</h2>
+<h3>In the bank, not in the books ({{ result.bank_only | length }})</h3>
+{% if result.bank_only %}{{ lines_table(result.bank_only, false) }}{% else %}<p class="muted">Nothing here.</p>{% endif %}
+<h3>In the books, not in the bank ({{ result.books_only | length }})</h3>
+{% if result.books_only %}{{ lines_table(result.books_only, true) }}{% else %}<p class="muted">Nothing here.</p>{% endif %}
 
-<h2>In the books, not in the bank ({{ result.books_only | length }})</h2>
-{% if result.books_only %}
-<div class="table-wrap">
-<table>
-  <tr><th>Ref</th><th>Date</th><th>Name</th><th class="amount">Amount</th></tr>
-  {% for t in result.books_only %}
-  <tr><td>{{ t.reference }}</td><td>{{ t.date.strftime('%m/%d/%Y') }}</td><td>{{ t.description }}</td>{{ amount_cell(t.amount) }}</tr>
+<details>
+  <summary>Reconciling items in detail</summary>
+  {% for title, items in recon.sections() %}
+  <h3>{{ title }} ({{ items | length }})</h3>
+  {% if items %}
+  <div class="table-wrap">
+  <table class="items">
+    {% for t in items %}
+    <tr>
+      <td class="nowrap">{{ t.date.strftime('%m/%d/%Y') }}</td>
+      <td>{{ t.reference or ("Bank line " ~ t.line if t.source == "bank" else "") }}</td>
+      <td>{{ t.description }} {% if recon.is_pending(t) %}<span class="badge pending">pending review</span>{% endif %}</td>
+      {{ money_cell(t.amount) }}
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  {% else %}<p class="muted">None.</p>{% endif %}
   {% endfor %}
-</table>
-</div>
-{% else %}<p class="muted">Nothing here.</p>{% endif %}
+</details>
 
 <details>
   <summary>Matched ({{ result.matched | length }})</summary>

@@ -23,7 +23,12 @@ def test_cli_prints_reconciliation_and_writes_excel(tmp_path, capsys):
     assert "RECONCILED: the difference is $0.00." in printed
 
     workbook = load_workbook(output)
-    assert workbook.sheetnames == ["Summary", "Matched", "Review", "Unmatched bank", "Unmatched books"]
+    assert workbook.sheetnames == ["Reconciliation", "Summary", "Matched", "Review",
+                                   "Unmatched bank", "Unmatched books"]
+    recon_sheet = workbook["Reconciliation"]
+    first_column = [row[0] for row in recon_sheet.iter_rows(values_only=True)]
+    assert "= Adjusted bank balance" in first_column and "Reconciled: the difference is $0.00." in first_column
+    assert recon_sheet.page_setup.fitToWidth == 1 and recon_sheet.print_area
     assert workbook["Matched"]["A1"].value == "Status"
     assert workbook["Matched"]["E2"].number_format.startswith('"$"')
     labels = [row[0] for row in workbook["Summary"].iter_rows(values_only=True)]

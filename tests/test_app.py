@@ -52,7 +52,7 @@ def test_missing_file_shows_error(client):
     response = client.post("/reconcile", content_type="multipart/form-data",
                            data={"bank": (io.BytesIO(b"x"), "bank.csv")})
     assert response.status_code == 400
-    assert "choose both" in response.get_data(as_text=True)
+    assert "Please choose the books file." in response.get_data(as_text=True)
 
 
 def test_wrong_columns_ask_which_is_which(client):
@@ -80,4 +80,48 @@ def test_unknown_download_is_404(client):
 
 def test_without_balances_asks_for_them(client):
     response = upload(client, (SAMPLES / "bank.csv").read_bytes(), (SAMPLES / "books.csv").read_bytes())
-    assert "Enter both ending balances" in response.get_data(as_text=True)
+    assert "Ending balances needed" in response.get_data(as_text=True)
+
+
+def test_sample_button_reconciles(client):
+    page = client.post("/sample/clean").get_data(as_text=True)
+    assert "Reconciled" in page and 'class="status good"' in page
+    assert "sample_data/bank.csv" in page
+
+
+def test_error_sample_button_shows_the_difference_in_red(client):
+    page = client.post("/sample/error").get_data(as_text=True)
+    assert 'class="status bad"' in page and "-$90.00" in page and "swapped" in page
+
+
+def test_unknown_sample_is_404(client):
+    assert client.post("/sample/secret").status_code == 404
+
+
+def test_only_csv_files_are_accepted(client):
+    response = client.post("/reconcile", content_type="multipart/form-data", data={
+        "bank": (io.BytesIO(b"PK..."), "statement.xlsx"),
+        "books": (io.BytesIO(b"Date,Name,Num,Amount\n"), "books.csv")})
+    assert response.status_code == 400
+    assert "must be a .csv file" in response.get_data(as_text=True)
+
+
+def test_bad_balance_is_explained(client):
+    response = upload(client, (SAMPLES / "bank.csv").read_bytes(), (SAMPLES / "books.csv").read_bytes(),
+                      bank_balance="lots")
+    assert response.status_code == 400
+    assert "is not a number" in response.get_data(as_text=True)
+
+
+def test_too_large_upload(client):
+    big = b"x" * (6 * 1024 * 1024)
+    response = upload(client, big, b"Date,Name,Num,Amount\n")
+    assert response.status_code == 413
+    assert "too large" in response.get_data(as_text=True)
+
+
+def test_results_page_has_print_and_excel(client):
+    page = client.post("/sample/clean").get_data(as_text=True)
+    assert "window.print()" in page and "Download Excel" in page
+    # Primero lo que hay que revisar y lo que no cuadra; lo que cuadró al final, plegado
+    assert page.index("Needs review (") < page.index("Not matched (") < page.index("<summary>Matched")

@@ -47,4 +47,4 @@ Es un proyecto aparte de `~/hoja-ruta`. No tocar nada de ese proyecto.
 - Datos de ejemplo: `python tools/make_sample_data.py`
 - Terminal: `python reconcile.py sample_data/bank.csv sample_data/books.csv`
 - Ejemplo con error: `python reconcile.py sample_data_error/bank.csv sample_data_error/books.csv`
-- Web: `python app.py` → http://127.0.0.1:5000
+- Web: `python app.py` → http://127.0.0.1:5001 (el 5000 lo usa la app del bus)

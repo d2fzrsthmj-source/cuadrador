@@ -137,11 +137,11 @@ def test_mapping_screen_reconciles_and_saves_the_format(client, tmp_path):
         "bank-date": "When", "bank-description": "What", "bank-amount": "How Much",
         "bank-save_as": "format_d"})
     assert response.status_code == 200
-    assert "Reconciliation results" in response.get_data(as_text=True)
+    assert "Download Excel" in response.get_data(as_text=True)
     assert (tmp_path / "format_d.json").exists()
 
     # La próxima vez el archivo se reconoce solo
-    assert "Reconciliation results" in upload(client, STRANGE_BANK).get_data(as_text=True)
+    assert "Download Excel" in upload(client, STRANGE_BANK).get_data(as_text=True)
 
 
 def test_mapping_screen_rejects_incomplete_choices(client):
