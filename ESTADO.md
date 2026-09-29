@@ -36,6 +36,19 @@ y pantalla web mínima.
     en la terminal y en la web; historial y archivos revisados (sin datos reales,
     claves ni rutas personales).
 
+### Tercera sesión (2026-09-29)
+1. **Excel (.xlsx) además de CSV** (commit `85990b0`). El lector detecta el tipo por los
+   primeros bytes, lee la primera hoja con openpyxl (`data_only=True`) y convierte cada
+   celda a texto: fechas como MM/DD/YYYY y números con `str(valor)` → `Decimal`.
+   Todo lo demás (encabezado, formatos, montos) es el mismo camino del CSV.
+   La web acepta .csv y .xlsx; un .xls viejo se rechaza ("Save the file as .xlsx or .csv").
+   Nuevos `sample_data/bank.xlsx` y `books.xlsx`, idénticos byte por byte en cada corrida
+   (se fijan las fechas internas del archivo). 123 pruebas en verde.
+2. **Video de demostración: EN ESPERA.** ffmpeg no está instalado en esta computadora;
+   según lo acordado, se paró aquí. No se instaló Playwright ni se escribió
+   `tools/record_demo.py`. Para seguir: instalar ffmpeg (ver "Qué falta").
+3. **PDF: solo explicación**, sin código, hasta que el usuario diga OK (ver IDEAS.md).
+
 ### Resultados con los datos de ejemplo
 - `sample_data/`: 53 cuadran, 6 para revisar, 10 sin pareja. **Diferencia $0.00.**
 - `sample_data_error/`: **diferencia -$90.00**, causa señalada: cheque 1043,
@@ -66,10 +79,15 @@ y pantalla web mínima.
 
 ## Qué falta
 - Lo que sigue está en `IDEAS.md` (PDF, login, versión en español, varias cuentas...).
-- Nada del plan. El repositorio ya está publicado (ver abajo).
+- **Video de demostración:** falta ffmpeg. Instalarlo en una terminal propia (pide la
+  contraseña de sudo):  `sudo apt update && sudo apt install -y ffmpeg`
+  Después: instalar Playwright SOLO en el venv (`pip install playwright` y
+  `python -m playwright install chromium`), escribir `tools/record_demo.py`, grabar
+  `docs/demo.webm`, `docs/demo.mp4` y `docs/demo.gif`, y poner el GIF al inicio del README.
+- **PDF:** esperando el OK del usuario después de la explicación.
 
 ## Último commit
-Ver `git log --oneline -1`. Publicado hasta el paso 14 (`5c4beda`) y este cambio de ESTADO.md.
+Ver `git log --oneline -1`. Todo está publicado en `origin/main`.
 
 ## Cómo arrancarlo
 ```bash

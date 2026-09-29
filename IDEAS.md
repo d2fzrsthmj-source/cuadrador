@@ -4,6 +4,10 @@ Cosas que se harán más adelante. Anotarlas aquí, no construirlas sin que el u
 
 ## Pendientes grandes
 - **Leer PDF** de estados de cuenta (necesitaría una librería nueva: explicarla antes).
+  Explicado el 2026-09-29, esperando OK: la opción sería **pdfplumber** (lee el texto
+  con su posición y puede sacar tablas). Solo sirve para PDF con texto (no escaneados);
+  cada banco acomoda la tabla distinto, las líneas partidas en dos renglones y los
+  saldos corridos complican la lectura, y habría que revisar siempre el resultado.
 - **Login**, solo si algún día deja de ser únicamente local.
 - **Versión en español** de la pantalla, los motivos y el Excel (hoy todo va en inglés).
 - **Varias cuentas bancarias**: conciliar varias cuentas en una misma corrida, con
