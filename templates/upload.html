@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Cuadrador – Bank reconciliation{% endblock %}
+{% block content %}
+<h1>Bank reconciliation</h1>
+<p class="muted">Upload your bank statement and your invoice list. We match them automatically and show you only what doesn't add up.</p>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<form class="card" action="{{ url_for('reconcile_upload') }}" method="post" enctype="multipart/form-data">
+  <label for="bank">Bank transactions (CSV)</label>
+  <input id="bank" name="bank" type="file" accept=".csv,text/csv" required>
+  <p class="muted">Columns: Date, Description, and Amount (or Debit and Credit).</p>
+
+  <label for="invoices">Invoices and expected payments (CSV)</label>
+  <input id="invoices" name="invoices" type="file" accept=".csv,text/csv" required>
+  <p class="muted">Columns: Date, Name, Num, Amount (positive = money in, negative = money out).</p>
+
+  <button type="submit">Reconcile</button>
+</form>
+
+<p class="muted">Your files are processed in memory and are never stored.</p>
+{% endblock %}
