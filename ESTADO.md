@@ -1,46 +1,80 @@
 # Estado del proyecto
 
-_Última actualización: 2026-09-28_
+_Última actualización: 2026-09-29_
 
-## Qué quedó hecho (pasos 1 a 7 del plan)
-1. Esqueleto: git, venv, requirements.txt, CLAUDE.md, ESTADO.md, IDEAS.md, .gitignore.
-2. `tools/make_sample_data.py`: datos inventados de "Maple Street Contracting"
-   (60 líneas de banco, 57 facturas) con los 10 casos difíciles y la hoja de
-   respuestas `sample_data/expected.csv`. Semilla fija: siempre sale igual.
-3. `reader.py`: lee los CSV (fechas MM/DD/YYYY y YYYY-MM-DD, montos con $, comas,
-   paréntesis, columnas Debit/Credit, nombres de columnas flexibles o mapeo propio).
-   Las líneas rotas se separan con su motivo.
-4. `matcher.py`: el motor por rondas (duplicados → número de cheque/factura →
-   candidato único → nombre parecido → parciales / varias facturas). Cada resultado
-   lleva su motivo. Nunca usa una línea dos veces.
-5. Pruebas: 66 en verde (`pytest`), una por cada caso difícil y varias del lector.
-6. `reconcile.py` + `excel_report.py`: resumen en la terminal y Excel con hojas
-   Summary, Matched, Review, Unmatched bank, Unmatched invoices.
-7. `app.py` + `templates/`: pantalla web en inglés, solo en 127.0.0.1, archivos en memoria.
+## Qué quedó hecho
 
-Resultado con los datos de ejemplo: 46 cuadran, 5 para revisar, 14 no cuadran
-(9 del banco, 5 facturas), diferencia -$31,341.62 (sobre todo nómina y préstamo,
-que no están en la lista de facturas).
+### Pasos 1 a 7 (primera sesión)
+Esqueleto, datos inventados, lector de CSV, motor por rondas, pruebas, terminal + Excel
+y pantalla web mínima.
+
+### Pasos 8 a 13 (segunda sesión)
+8. **Conciliación contra los LIBROS.** El segundo archivo es el registro de la cuenta
+   (`books.csv`); una lista de facturas sigue sirviendo. `reconciliation.py` arma el
+   formato estándar (saldos, depósitos en tránsito, cheques pendientes, comisiones e
+   intereses no registrados, otras partidas, diferencia) y da pistas si la diferencia
+   no es cero (dígitos invertidos, divisible entre 9).
+   Dos juegos de datos: `sample_data/` (cuadra en $0.00) y `sample_data_error/`
+   ($540.00 registrado como $450.00: diferencia -$90.00, el programa lo señala).
+9. **Varios asientos, parciales y pagos de más.** Combinaciones de hasta 3 asientos
+   (una sola posible → Probable; varias → Review con las opciones), pago parcial con
+   saldo pendiente y pago de más.
+10. **Formatos de banco.** Encuentra el encabezado aunque haya líneas de texto antes.
+    Formatos guardados en `mappings/format_a|b|c.json` (nombres genéricos, no de bancos
+    reales). Si no reconoce las columnas, la web pregunta cuál es cuál y puede guardar
+    el formato con un nombre.
+11. **Pantalla profesional** en el puerto **5001**: conciliación arriba (verde si $0.00,
+    rojo si no), luego Review y lo que no cuadra con su motivo, y al final lo que cuadró,
+    plegado. Botones "Try with sample data" y "Try the example with an error".
+    Solo acepta .csv, 5 MB máximo, mensajes claros, se imprime bien.
+    El Excel gana la hoja "Reconciliation" lista para imprimir.
+12. **README en inglés** para clientes y portafolio, con 3 capturas en `docs/`
+    (solo datos inventados).
+13. **Revisión final:** 115 pruebas en verde; los dos ejemplos corren de principio a fin
+    en la terminal y en la web; historial y archivos revisados (sin datos reales,
+    claves ni rutas personales).
+
+### Resultados con los datos de ejemplo
+- `sample_data/`: 53 cuadran, 6 para revisar, 10 sin pareja. **Diferencia $0.00.**
+- `sample_data_error/`: **diferencia -$90.00**, causa señalada: cheque 1043,
+  banco -$540.00 vs libros -$450.00.
 
 ## Decisiones tomadas por mi cuenta (revisar si no convencen)
-- Signos: en facturas, positivo = nos pagan (cliente), negativo = pagamos (proveedor).
-- "Diferencia" = total del banco menos total de facturas.
-- "Probable" (ronda 3) se cuenta y se muestra junto con "Review".
-- Motivos, resumen de terminal y Excel en inglés, igual que la pantalla.
-- Pagos parciales y de varias facturas usan una ventana de ±10 días.
+- **Qué cuenta como "ya pasó por el banco":** los pares Matched y Probable, y el par de
+  dígitos invertidos (es el mismo movimiento con distinto monto; por eso su diferencia
+  queda a la vista). Todo lo que está en Review queda como partida pendiente dentro del
+  formato estándar, marcado "pending review". Así la diferencia da $0.00 cuando todo
+  está explicado, aunque haya casos por decidir.
+- **Comisiones e intereses** se reconocen por palabras en la descripción del banco
+  (FEE, SERVICE CHARGE, INTEREST). Lo demás que solo está en el banco va a
+  "Other bank-only items".
+- **Outstanding checks** incluye cualquier pago registrado que el banco no ha cobrado
+  (cheques y pagos ACH).
+- **Saldos finales:** opcionales. En la terminal, si no se dan, se leen de
+  `balances.json` junto al archivo del banco (los datos de ejemplo lo traen).
+- **Estados:** "Bank only" y "Books only" reemplazan a "Unmatched in bank/invoices".
+- **Botones de ejemplo:** también responden a GET (solo leen los datos inventados),
+  para poder tomar capturas.
+- **Formatos guardados desde la web** van a `mappings/` y se versionan con git
+  (solo son nombres de columnas, no datos).
+- **Autor de los commits:** en la primera sesión copié tu nombre y correo de hoja-ruta
+  a la configuración local de este repo. El nombre completo aparece en los 13 commits.
+  Si no quieres que se vea al publicar, hay que decidir antes del push (ver abajo).
 
 ## Qué falta
-- Nada del plan original. Lo siguiente posible está en IDEAS.md.
-- No hay repositorio en GitHub todavía (no se ha hecho push).
+- Lo que sigue está en `IDEAS.md` (PDF, login, versión en español, varias cuentas...).
+- No hay repositorio en GitHub todavía; no se ha hecho push.
 
 ## Último commit
-Ver `git log --oneline -1` (paso 7 + este cierre).
+Ver `git log --oneline -1`.
 
 ## Cómo arrancarlo
 ```bash
 cd ~/cuadrador
 source venv/bin/activate
-pytest                                                            # pruebas
-python reconcile.py sample_data/bank.csv sample_data/invoices.csv # terminal + Excel en output/
-python app.py                                                     # web: http://127.0.0.1:5000
+pytest                                                                        # pruebas
+python reconcile.py sample_data/bank.csv sample_data/books.csv                # cuadra en $0.00
+python reconcile.py sample_data_error/bank.csv sample_data_error/books.csv    # -$90.00 explicado
+python tools/make_sample_data.py                                              # regenerar datos
+python app.py                                                                 # web: http://127.0.0.1:5001
 ```
