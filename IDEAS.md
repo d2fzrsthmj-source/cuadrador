@@ -4,7 +4,8 @@ Cosas que se harán más adelante. Anotarlas aquí, no construirlas sin que el u
 
 ## Pendientes grandes
 - **Leer PDF** de estados de cuenta (necesitaría una librería nueva: explicarla antes).
-  Explicado el 2026-09-29, esperando OK: la opción sería **pdfplumber** (lee el texto
+  Decisión (2026-09-29): NO se construye hasta que un cliente lo pida.
+  La opción sería **pdfplumber** (lee el texto
   con su posición y puede sacar tablas). Solo sirve para PDF con texto (no escaneados);
   cada banco acomoda la tabla distinto, las líneas partidas en dos renglones y los
   saldos corridos complican la lectura, y habría que revisar siempre el resultado.

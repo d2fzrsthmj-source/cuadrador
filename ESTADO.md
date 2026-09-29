@@ -44,10 +44,17 @@ y pantalla web mínima.
    La web acepta .csv y .xlsx; un .xls viejo se rechaza ("Save the file as .xlsx or .csv").
    Nuevos `sample_data/bank.xlsx` y `books.xlsx`, idénticos byte por byte en cada corrida
    (se fijan las fechas internas del archivo). 123 pruebas en verde.
-2. **Video de demostración: EN ESPERA.** ffmpeg no está instalado en esta computadora;
-   según lo acordado, se paró aquí. No se instaló Playwright ni se escribió
-   `tools/record_demo.py`. Para seguir: instalar ffmpeg (ver "Qué falta").
-3. **PDF: solo explicación**, sin código, hasta que el usuario diga OK (ver IDEAS.md).
+2. **Video de demostración** (commit `e018060`). `tools/record_demo.py` arranca la app,
+   recorre con Playwright (inicio → sample data → Review → ejemplo con error → fila del
+   cheque 1043 marcada en rojo) y toma capturas exactas cuadro por cuadro; ffmpeg arma
+   `docs/demo.webm` (0.67 MB), `docs/demo.mp4` (2.78 MB) y `docs/demo.gif` (7.48 MB,
+   960 px, 10 fps, 36.4 s). El GIF está al principio del README.
+   Por qué capturas y no la grabación de Playwright: esa grabación comprime con ruido en
+   cada cuadro y el GIF pesaba 15.5 MB aun con 32 colores.
+   Playwright está SOLO en el venv (no en requirements.txt). En Ubuntu necesitó
+   `sudo apt install -y libnss3 libnspr4` y ffmpeg.
+   Para regrabar: `python tools/record_demo.py` (con la app apagada: usa el puerto 5001).
+3. **PDF: no se construye** hasta que un cliente lo pida (explicación en IDEAS.md).
 
 ### Resultados con los datos de ejemplo
 - `sample_data/`: 53 cuadran, 6 para revisar, 10 sin pareja. **Diferencia $0.00.**
@@ -79,12 +86,8 @@ y pantalla web mínima.
 
 ## Qué falta
 - Lo que sigue está en `IDEAS.md` (PDF, login, versión en español, varias cuentas...).
-- **Video de demostración:** falta ffmpeg. Instalarlo en una terminal propia (pide la
-  contraseña de sudo):  `sudo apt update && sudo apt install -y ffmpeg`
-  Después: instalar Playwright SOLO en el venv (`pip install playwright` y
-  `python -m playwright install chromium`), escribir `tools/record_demo.py`, grabar
-  `docs/demo.webm`, `docs/demo.mp4` y `docs/demo.gif`, y poner el GIF al inicio del README.
-- **PDF:** esperando el OK del usuario después de la explicación.
+- Nada pendiente del plan. Lo siguiente posible está en `IDEAS.md`.
+- **PDF:** decidido no hacerlo hasta que un cliente lo pida.
 
 ## Último commit
 Ver `git log --oneline -1`. Todo está publicado en `origin/main`.
