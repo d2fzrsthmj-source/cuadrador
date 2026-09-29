@@ -1,0 +1,15 @@
+# Entorno virtual de Python
+venv/
+
+# Cachés de Python y pytest
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Archivos de salida (Excel generados, reportes)
+output/
+*.xlsx
+
+# Carpetas de archivos subidos (nunca se guardan)
+uploads/
+tmp/
